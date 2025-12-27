@@ -46,11 +46,8 @@ class GameEngine:
         self.notification_timer = 0
         self.notification_color = (255, 50, 50)
         
-        # 移除 heroes_spawned 計數，因為現在只會有一隻
         self.event_manager = EventManager(self)
         self.is_paused = False
-        
-        # 注意：init_world 稍微延後到選完英雄再做
 
     def init_world(self, hero_choice):
         # 1. 生成普通村民
@@ -59,17 +56,17 @@ class GameEngine:
         for i in range(5):
             self.villagers.append(Villager(self, f"農夫{i}", (100, 100, 255), "Farmer"))
             
-        # 2. 生成玩家選擇的英雄 (領袖)
+        # 2. 生成玩家選擇的英雄 (套用新名字)
         hero = None
         if hero_choice == 1:
-            hero = SonicHero(self, "領袖-索尼克")
-            self.log_event("領袖 索尼克 (高速) 加入了村莊！")
+            hero = SonicHero(self, "艾里奧") # Elio
+            self.log_event("【迅捷之風】艾里奧 加入了村莊！")
         elif hero_choice == 2:
-            hero = TycoonHero(self, "領袖-大亨")
-            self.log_event("領袖 大亨 (金錢) 加入了村莊！")
+            hero = TycoonHero(self, "摩根") # Morgan
+            self.log_event("【黃金之手】摩根 加入了村莊！")
         elif hero_choice == 3:
-            hero = HealerHero(self, "領袖-醫者")
-            self.log_event("領袖 醫者 (回復) 加入了村莊！")
+            hero = HealerHero(self, "芙蕾雅") # Freya
+            self.log_event("【守護者】芙蕾雅 加入了村莊！")
             
         if hero:
             hero.pos.x = self.map_width // 2
@@ -154,10 +151,6 @@ class GameEngine:
             self.is_paused = True
             return
 
-        # --- [修改] 移除了原本隨機生成英雄的邏輯 ---
-        # 英雄現在只有開場選的那一隻，死了就沒了
-        # -------------------------------------
-
         for v in self.villagers: v.update()
         self.resources = [r for r in self.resources if r.active]
 
@@ -208,8 +201,7 @@ class GameEngine:
         p_str = f"Prosperity: {int(self.prosperity)}"
         self.screen.blit(self.font.render(p_str, True, (200, 100, 255)), (ui_x+10, base_y + 70))
         
-        # 繁榮度條 (只剩下觀賞和評分用途)
-        bar_w = 200 * min(1.0, self.prosperity/2000) # 上限設高一點讓它不容易滿
+        bar_w = 200 * min(1.0, self.prosperity/2000)
         pygame.draw.rect(self.screen, (50,50,50), (ui_x+10, base_y + 90, 200, 10))
         pygame.draw.rect(self.screen, (138,43,226), (ui_x+10, base_y + 90, bar_w, 10))
 
@@ -250,7 +242,6 @@ class GameEngine:
         pygame.display.flip()
 
     def start_screen(self):
-        # 這裡只負責顯示規則，按任意鍵後會進入選英雄畫面
         waiting = True
         while waiting:
             self.screen.fill((20, 20, 30))
@@ -285,38 +276,64 @@ class GameEngine:
                     waiting = False
         return True
 
-    # --- [新增] 英雄選擇畫面 ---
+    # --- [修改] 詳細的英雄選擇畫面 ---
     def hero_selection_screen(self):
         selected_hero = None
         while selected_hero is None:
-            self.screen.fill((10, 10, 20))
+            self.screen.fill((15, 15, 25))
             
-            # 標題
-            title = self.title_font.render("選擇你的開局領袖", True, (255, 255, 255))
-            self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 100))
+            title = self.title_font.render("請選擇一位開局領袖", True, (255, 255, 255))
+            self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 80))
             
-            # 選項說明
+            # 定義選項
             options = [
-                {"key": "[1]", "name": "Sonic (速度型)", "desc": "移動超快，前期搶奪資源的神。"},
-                {"key": "[2]", "name": "Tycoon (經濟型)", "desc": "被動產生黃金，不怕沒錢買糧食。"},
-                {"key": "[3]", "name": "Healer (生存型)", "desc": "會治療受傷村民，減少夜襲死亡率。"}
+                {
+                    "key": "[1]",
+                    "name": "迅捷之風 - 艾里奧 (Elio)",
+                    "desc": "能力：極致速度 (Speed 2.5)。能瞬間清空地圖資源，適合快速擴張流派。",
+                    "color": (100, 255, 100) # 綠色
+                },
+                {
+                    "key": "[2]",
+                    "name": "黃金之手 - 摩根 (Morgan)",
+                    "desc": "能力：煉金術。每天自動產出大量黃金，適合貿易買糧流派。",
+                    "color": (255, 215, 0)   # 金色
+                },
+                {
+                    "key": "[3]",
+                    "name": "森林守護者 - 芙蕾雅 (Freya)",
+                    "desc": "能力：治癒光環。自動治療受傷村民，大幅降低夜襲死亡率，穩健生存。",
+                    "color": (255, 100, 255) # 粉色
+                }
             ]
             
-            y = 200
-            for opt in options:
-                # 畫選項文字
-                key_text = self.title_font.render(opt["key"], True, (255, 215, 0))
-                name_text = self.title_font.render(opt["name"], True, (100, 255, 255))
-                desc_text = self.font.render(opt["desc"], True, (200, 200, 200))
-                
-                cx = self.map_width // 2 + 100
-                self.screen.blit(key_text, (cx - 200, y))
-                self.screen.blit(name_text, (cx - 140, y))
-                self.screen.blit(desc_text, (cx - 140, y + 35))
-                y += 100
+            y = 180
+            cx = self.map_width // 2 + 100 # 中心點偏右一點
             
-            hint = self.font.render("按鍵盤 [1] [2] [3] 選擇", True, (150, 150, 150))
-            self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 550))
+            for opt in options:
+                # 畫一個外框讓選項更清楚
+                rect_x = cx - 350
+                rect_w = 700
+                rect_h = 100
+                pygame.draw.rect(self.screen, (30, 30, 40), (rect_x, y - 10, rect_w, rect_h))
+                pygame.draw.rect(self.screen, opt["color"], (rect_x, y - 10, rect_w, rect_h), 2)
+                
+                # 選項編號
+                key_text = self.large_font.render(opt["key"], True, opt["color"])
+                self.screen.blit(key_text, (rect_x + 20, y + 10))
+                
+                # 名字
+                name_text = self.title_font.render(opt["name"], True, (255, 255, 255))
+                self.screen.blit(name_text, (rect_x + 100, y + 10))
+                
+                # 描述 (可能有點長，用小一點的字體)
+                desc_text = self.font.render(opt["desc"], True, (200, 200, 200))
+                self.screen.blit(desc_text, (rect_x + 100, y + 50))
+                
+                y += 120
+            
+            hint = self.font.render("按鍵盤 [1] [2] [3] 確認選擇", True, (150, 150, 150))
+            self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 560))
 
             pygame.display.flip()
 
@@ -371,7 +388,6 @@ class GameEngine:
             sub = self.title_font.render("你成功生存了 15 天！", True, (255, 255, 255))
             self.screen.blit(sub, (self.screen.get_width()//2 - sub.get_width()//2, 210))
             
-            # 評分系統
             final_score = int(self.prosperity)
             rank = "C"
             rank_color = (200, 200, 200)
@@ -415,16 +431,13 @@ class GameEngine:
                         return
 
     def run(self):
-        # 1. 說明畫面
         if not self.start_screen():
             return
             
-        # 2. 英雄選擇畫面 (新增)
         hero_choice = self.hero_selection_screen()
-        if hero_choice is None: # 如果玩家按 X 關閉視窗
+        if hero_choice is None:
             return
             
-        # 3. 初始化世界 (現在才生成角色)
         self.init_world(hero_choice)
 
         running = True

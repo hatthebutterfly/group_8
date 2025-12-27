@@ -158,6 +158,12 @@ class GameEngine:
             self.frame_count = 0
             self.log_event("--- 新的一天 ---")
             
+            # --- [新增] 每 5 天 (Day 5, 10) 觸發黑市商店 ---
+            if self.day % 5 == 0 and self.day < 15:
+                self.event_manager.trigger_special_shop()
+                self.is_paused = True # 強制暫停進入商店
+            # -------------------------------------------
+            
             # 夜襲系統 (依難度)
             attack_damage = random.randint(self.night_dmg_min, self.night_dmg_max)
             
@@ -552,7 +558,7 @@ class GameEngine:
         if hero_choice is None:
             return
             
-        # 3. 難度選擇 (這裡就是你之前缺少的部分)
+        # 3. 難度選擇
         diff_choice = self.difficulty_selection_screen()
         if diff_choice is None:
             return

@@ -4,6 +4,7 @@ import os
 import config
 from models.resource import Resource
 from models.villager import Villager
+# 引入所有 5 位英雄
 from models.hero import SonicHero, HealerHero, TycoonHero, BuilderHero, OracleHero
 from models.event_system import EventManager
 
@@ -49,19 +50,18 @@ class GameEngine:
         self.event_manager = EventManager(self)
         self.is_paused = False
         
-        # --- [新增] 難度參數 ---
+        # --- 難度參數 ---
         self.difficulty = "Normal"
-        self.spawn_rate = 15      # 每天生成多少資源
-        self.night_dmg_min = 15   # 夜襲最小傷害
-        self.night_dmg_max = 40   # 夜襲最大傷害
-        self.is_hell_mode = False # 地獄模式開關 (死人即結束)
+        self.spawn_rate = 15      
+        self.night_dmg_min = 15   
+        self.night_dmg_max = 40   
+        self.is_hell_mode = False 
 
     def apply_difficulty_settings(self, level):
         """根據選擇的難度調整遊戲參數"""
         self.difficulty = level
         
         if level == "Normal":
-            # 預設值
             config.HUNGER_RATE = 0.1
             self.spawn_rate = 15
             self.night_dmg_min = 15
@@ -70,22 +70,20 @@ class GameEngine:
             self.log_event("難度設定：一般。祝你好運！")
 
         elif level == "Hard":
-            # 資源少、餓得快、打得痛
-            config.HUNGER_RATE = 0.15 # 餓比較快
-            self.spawn_rate = 10      # 資源變少
+            config.HUNGER_RATE = 0.15 
+            self.spawn_rate = 10      
             self.night_dmg_min = 30
             self.night_dmg_max = 60
             self.is_hell_mode = False
-            self.log_event("難度設定：困難。資源將會非常稀缺...")
+            self.log_event("難度設定：困難。資源稀缺，夜襲更強！")
 
         elif level == "Hell":
-            # 極限生存
-            config.HUNGER_RATE = 0.2  # 餓超快
-            self.spawn_rate = 8       # 資源極少
-            self.night_dmg_min = 50   # 牆壁可能被秒殺
+            config.HUNGER_RATE = 0.2  
+            self.spawn_rate = 8       
+            self.night_dmg_min = 50   
             self.night_dmg_max = 100
-            self.is_hell_mode = True  # 只要有人死就 Game Over
-            self.log_event("難度設定：地獄。只要死一個人，遊戲結束。")
+            self.is_hell_mode = True  
+            self.log_event("難度設定：地獄。只要死一人即結束！")
 
     def init_world(self, hero_choice):
         # 1. 生成普通村民
@@ -117,8 +115,7 @@ class GameEngine:
             hero.pos.y = self.map_height // 2
             self.villagers.append(hero)
 
-        # 3. 生成初始資源
-        # 根據難度決定初始資源量
+        # 3. 生成初始資源 (根據難度)
         initial_res = 30
         if self.difficulty == "Hard": initial_res = 20
         if self.difficulty == "Hell": initial_res = 10
@@ -161,7 +158,7 @@ class GameEngine:
             self.frame_count = 0
             self.log_event("--- 新的一天 ---")
             
-            # --- [修改] 夜襲傷害改用變數 ---
+            # 夜襲系統 (依難度)
             attack_damage = random.randint(self.night_dmg_min, self.night_dmg_max)
             
             if self.wall_hp > 0:
@@ -181,17 +178,15 @@ class GameEngine:
                     self.log_event(f"😱 慘劇：{victim.name} 被咬死了！")
                     self.show_notification(f"😱 慘劇！{victim.name} 死亡", (200, 0, 0))
                     
-                    # --- [新增] 地獄模式判定 ---
+                    # 地獄模式：死人即結束
                     if self.is_hell_mode:
                         self.log_event("地獄模式規則：有人死亡，遊戲結束！")
-                        # 讓所有人都死掉，觸發 Game Over
                         for v in self.villagers: v.is_alive = False
-                    # -------------------------
                 else:
                     self.log_event("昨晚運氣好，野獸沒有發現村民")
                     self.show_notification("昨晚平安無事", (100, 255, 100))
 
-            # --- [修改] 資源生成量改用變數 ---
+            # 資源生成 (依難度)
             self.spawn_resources(self.spawn_rate)
             
             pop = sum(1 for v in self.villagers if v.is_alive)
@@ -391,7 +386,7 @@ class GameEngine:
         
         return selected_hero
 
-    # --- [新增] 難度選擇畫面 ---
+    # --- 難度選擇畫面 ---
     def difficulty_selection_screen(self):
         selected_diff = None
         while selected_diff is None:
@@ -557,7 +552,7 @@ class GameEngine:
         if hero_choice is None:
             return
             
-        # 3. [新增] 難度選擇
+        # 3. 難度選擇 (這裡就是你之前缺少的部分)
         diff_choice = self.difficulty_selection_screen()
         if diff_choice is None:
             return

@@ -4,7 +4,8 @@ import os
 import config
 from models.resource import Resource
 from models.villager import Villager
-from models.hero import SonicHero, HealerHero, TycoonHero
+# 記得引入新英雄
+from models.hero import SonicHero, HealerHero, TycoonHero, BuilderHero, OracleHero
 from models.event_system import EventManager
 
 class GameEngine:
@@ -56,17 +57,23 @@ class GameEngine:
         for i in range(5):
             self.villagers.append(Villager(self, f"農夫{i}", (100, 100, 255), "Farmer"))
             
-        # 2. 生成玩家選擇的英雄 (套用新名字)
+        # 2. 生成玩家選擇的英雄 (5選1)
         hero = None
         if hero_choice == 1:
-            hero = SonicHero(self, "艾里奧") # Elio
-            self.log_event("【迅捷之風】艾里奧 加入了村莊！")
+            hero = SonicHero(self, "艾里奧")
+            self.log_event("【迅捷之風】艾里奧 加入！(移速極快)")
         elif hero_choice == 2:
-            hero = TycoonHero(self, "摩根") # Morgan
-            self.log_event("【黃金之手】摩根 加入了村莊！")
+            hero = TycoonHero(self, "摩根")
+            self.log_event("【黃金之手】摩根 加入！(自動產金)")
         elif hero_choice == 3:
-            hero = HealerHero(self, "芙蕾雅") # Freya
-            self.log_event("【守護者】芙蕾雅 加入了村莊！")
+            hero = HealerHero(self, "芙蕾雅")
+            self.log_event("【守護者】芙蕾雅 加入！(治療傷患)")
+        elif hero_choice == 4:
+            hero = BuilderHero(self, "泰坦")
+            self.log_event("【堅毅之盾】泰坦 加入！(自動修牆)")
+        elif hero_choice == 5:
+            hero = OracleHero(self, "瑟蕾絲")
+            self.log_event("【豐收女神】瑟蕾絲 加入！(全體抗餓)")
             
         if hero:
             hero.pos.x = self.map_width // 2
@@ -276,64 +283,72 @@ class GameEngine:
                     waiting = False
         return True
 
-    # --- [修改] 詳細的英雄選擇畫面 ---
+    # --- [修改] 支援 5 位英雄的選擇畫面 ---
     def hero_selection_screen(self):
         selected_hero = None
         while selected_hero is None:
             self.screen.fill((15, 15, 25))
             
             title = self.title_font.render("請選擇一位開局領袖", True, (255, 255, 255))
-            self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 80))
+            self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 50))
             
-            # 定義選項
+            # 定義 5 個選項
             options = [
                 {
-                    "key": "[1]",
-                    "name": "迅捷之風 - 艾里奧 (Elio)",
-                    "desc": "能力：極致速度 (Speed 2.5)。能瞬間清空地圖資源，適合快速擴張流派。",
-                    "color": (100, 255, 100) # 綠色
+                    "key": "[1]", "color": (100, 255, 100),
+                    "name": "迅捷之風 - 艾里奧",
+                    "desc": "極致速度(Spd 2.5)。掃蕩全圖資源，適合擴張流。"
                 },
                 {
-                    "key": "[2]",
-                    "name": "黃金之手 - 摩根 (Morgan)",
-                    "desc": "能力：煉金術。每天自動產出大量黃金，適合貿易買糧流派。",
-                    "color": (255, 215, 0)   # 金色
+                    "key": "[2]", "color": (255, 215, 0),
+                    "name": "黃金之手 - 摩根",
+                    "desc": "煉金術。隨時間自動產出黃金，適合貿易流。"
                 },
                 {
-                    "key": "[3]",
-                    "name": "森林守護者 - 芙蕾雅 (Freya)",
-                    "desc": "能力：治癒光環。自動治療受傷村民，大幅降低夜襲死亡率，穩健生存。",
-                    "color": (255, 100, 255) # 粉色
+                    "key": "[3]", "color": (255, 100, 255),
+                    "name": "守護者 - 芙蕾雅",
+                    "desc": "治癒光環。自動治療受傷村民，降低死亡率。"
+                },
+                {
+                    "key": "[4]", "color": (180, 180, 180),
+                    "name": "堅毅之盾 - 泰坦",
+                    "desc": "工程修復。每秒自動免費修補城牆，防禦流必備。"
+                },
+                {
+                    "key": "[5]", "color": (255, 140, 0),
+                    "name": "豐收女神 - 瑟蕾絲",
+                    "desc": "神之恩惠。定期降低全員飢餓度，養活大量人口。"
                 }
             ]
             
-            y = 180
-            cx = self.map_width // 2 + 100 # 中心點偏右一點
+            y = 120
+            cx = self.map_width // 2 + 100 
             
             for opt in options:
-                # 畫一個外框讓選項更清楚
+                # 外框
                 rect_x = cx - 350
                 rect_w = 700
-                rect_h = 100
-                pygame.draw.rect(self.screen, (30, 30, 40), (rect_x, y - 10, rect_w, rect_h))
-                pygame.draw.rect(self.screen, opt["color"], (rect_x, y - 10, rect_w, rect_h), 2)
+                rect_h = 80 # 稍微縮小高度以塞入5個
+                
+                pygame.draw.rect(self.screen, (30, 30, 40), (rect_x, y, rect_w, rect_h))
+                pygame.draw.rect(self.screen, opt["color"], (rect_x, y, rect_w, rect_h), 2)
                 
                 # 選項編號
                 key_text = self.large_font.render(opt["key"], True, opt["color"])
-                self.screen.blit(key_text, (rect_x + 20, y + 10))
+                self.screen.blit(key_text, (rect_x + 20, y + 20))
                 
                 # 名字
                 name_text = self.title_font.render(opt["name"], True, (255, 255, 255))
                 self.screen.blit(name_text, (rect_x + 100, y + 10))
                 
-                # 描述 (可能有點長，用小一點的字體)
+                # 描述
                 desc_text = self.font.render(opt["desc"], True, (200, 200, 200))
-                self.screen.blit(desc_text, (rect_x + 100, y + 50))
+                self.screen.blit(desc_text, (rect_x + 100, y + 45))
                 
-                y += 120
+                y += 90 # 間距
             
-            hint = self.font.render("按鍵盤 [1] [2] [3] 確認選擇", True, (150, 150, 150))
-            self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 560))
+            hint = self.font.render("按鍵盤 [1] ~ [5] 確認選擇", True, (150, 150, 150))
+            self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 580))
 
             pygame.display.flip()
 
@@ -345,6 +360,8 @@ class GameEngine:
                     if event.key == pygame.K_1: selected_hero = 1
                     if event.key == pygame.K_2: selected_hero = 2
                     if event.key == pygame.K_3: selected_hero = 3
+                    if event.key == pygame.K_4: selected_hero = 4
+                    if event.key == pygame.K_5: selected_hero = 5
         
         return selected_hero
 

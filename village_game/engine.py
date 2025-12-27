@@ -4,7 +4,7 @@ import os
 import config
 from models.resource import Resource
 from models.villager import Villager
-# 記得引入新英雄
+# 引入所有 5 位英雄
 from models.hero import SonicHero, HealerHero, TycoonHero, BuilderHero, OracleHero
 from models.event_system import EventManager
 
@@ -283,14 +283,15 @@ class GameEngine:
                     waiting = False
         return True
 
-    # --- [修改] 支援 5 位英雄的選擇畫面 ---
+    # --- [修改] 修正版面後的 5 位英雄選擇畫面 ---
     def hero_selection_screen(self):
         selected_hero = None
         while selected_hero is None:
             self.screen.fill((15, 15, 25))
             
+            # 標題稍微往上移
             title = self.title_font.render("請選擇一位開局領袖", True, (255, 255, 255))
-            self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 50))
+            self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 40))
             
             # 定義 5 個選項
             options = [
@@ -321,21 +322,23 @@ class GameEngine:
                 }
             ]
             
-            y = 120
+            # --- [調整] 緊湊版面 ---
+            y = 100  # 起始高度往上
             cx = self.map_width // 2 + 100 
             
             for opt in options:
                 # 外框
                 rect_x = cx - 350
                 rect_w = 700
-                rect_h = 80 # 稍微縮小高度以塞入5個
+                rect_h = 75 # 高度縮小
                 
+                # 畫框框背景與邊框
                 pygame.draw.rect(self.screen, (30, 30, 40), (rect_x, y, rect_w, rect_h))
                 pygame.draw.rect(self.screen, opt["color"], (rect_x, y, rect_w, rect_h), 2)
                 
-                # 選項編號
+                # 選項編號 [1]
                 key_text = self.large_font.render(opt["key"], True, opt["color"])
-                self.screen.blit(key_text, (rect_x + 20, y + 20))
+                self.screen.blit(key_text, (rect_x + 20, y + 15))
                 
                 # 名字
                 name_text = self.title_font.render(opt["name"], True, (255, 255, 255))
@@ -345,10 +348,11 @@ class GameEngine:
                 desc_text = self.font.render(opt["desc"], True, (200, 200, 200))
                 self.screen.blit(desc_text, (rect_x + 100, y + 45))
                 
-                y += 90 # 間距
+                y += 85 # 間距縮小
             
+            # 提示文字往上拉
             hint = self.font.render("按鍵盤 [1] ~ [5] 確認選擇", True, (150, 150, 150))
-            self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 580))
+            self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 540))
 
             pygame.display.flip()
 

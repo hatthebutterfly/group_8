@@ -8,7 +8,7 @@ class EventManager:
         self.active_event = None
         self.cooldown = 0
         
-        # 結算畫面狀態 (顯示成功/失敗用)
+        # 結算畫面狀態
         self.showing_result = False
         self.result_text = ""
         self.result_detail = ""
@@ -37,30 +37,34 @@ class EventManager:
             return True 
         return False
 
-    # --- [新增] 每 5 天出現的黑市商人 ---
+    # --- [修改] 黑市商人 (大幅降價 + 加量) ---
     def trigger_special_shop(self):
         self.active_event = {
-            "title": "黑市商人 (定期補給)",
-            "desc": "每五天經過一次的神秘商隊，這裡有錢能買到一切！",
+            "title": "黑市商人 (跳樓大拍賣)",
+            "desc": "商人：『這些都是走私貨，便宜賣給你！』",
             "options": [
                 {
-                    "text": "大量糧食包 (15 金 -> +100 食物)", 
-                    "cost": {"gold": 15}, 
+                    # 原本 15金 -> 100糧 改為 8金 -> 150糧
+                    "text": "超值糧食包 (8 金 -> +150 食物)", 
+                    "cost": {"gold": 8}, 
                     "effect": "shop_food_bulk"
                 },
                 {
-                    "text": "高級建材 (15 金 -> +40 木頭)", 
-                    "cost": {"gold": 15}, 
+                    # 原本 15金 -> 40木 改為 10金 -> 60木
+                    "text": "批發建材 (10 金 -> +60 木頭)", 
+                    "cost": {"gold": 10}, 
                     "effect": "shop_wood_bulk"
                 },
                 {
-                    "text": "傭兵修牆 (20 金 -> +150 HP)", 
-                    "cost": {"gold": 20}, 
+                    # 原本 20金 改為 12金，修復量增加
+                    "text": "大師修牆 (12 金 -> +250 HP)", 
+                    "cost": {"gold": 12}, 
                     "effect": "shop_repair_wall"
                 },
                 {
-                    "text": "神秘盲盒 (25 金 -> ???)", 
-                    "cost": {"gold": 25}, 
+                    # 原本 25金 改為 10金 (讓大家都能玩得起盲盒)
+                    "text": "神秘盲盒 (10 金 -> ???)", 
+                    "cost": {"gold": 10}, 
                     "effect": "shop_mystery_box"
                 }
             ]
@@ -91,12 +95,14 @@ class EventManager:
                     {"text": "深入內部 (50% +25木頭 / 50% 坍塌 -15HP)", "cost": {}, "effect": "risk_wood_mine_high"}
                 ]
             },
-            # --- 黃金 ---
+            # --- 黃金 (稍微調高獲得量) ---
             {
                 "title": "神秘的旅人", "desc": "一位穿著斗篷的人路過。",
                 "options": [
-                    {"text": "點頭致意 (70% +5黃金 / 30% 被扒手 -2黃金)", "cost": {}, "effect": "risk_gold_traveler_low"},
-                    {"text": "邀請晚餐 (50% +20黃金 / 50% 是強盜 -15黃金)", "cost": {}, "effect": "risk_gold_traveler_high"}
+                    # 獲得量從 5 -> 8
+                    {"text": "點頭致意 (70% +8黃金 / 30% 被扒手 -2黃金)", "cost": {}, "effect": "risk_gold_traveler_low"},
+                    # 獲得量從 20 -> 25
+                    {"text": "邀請晚餐 (50% +25黃金 / 50% 是強盜 -15黃金)", "cost": {}, "effect": "risk_gold_traveler_high"}
                 ]
             },
             # --- 特殊 BUFF ---
@@ -110,21 +116,26 @@ class EventManager:
         ]
         self.active_event = random.choice(scenarios)
 
+    # --- [修改] 普通商人也降價 ---
     def trigger_trade_event(self):
         events = [
             {
                 "title": "流浪商人", "desc": "普通的商人兜售物資。",
                 "options": [
-                    {"text": "買糧 (5 黃金 -> 30 食物)", "cost": {"gold": 5}, "effect": "buy_food"},
-                    {"text": "買木 (5 黃金 -> 5 木頭)", "cost": {"gold": 5}, "effect": "buy_wood"},
+                    # 5金 -> 3金
+                    {"text": "買糧 (3 金 -> 30 食物)", "cost": {"gold": 3}, "effect": "buy_food"},
+                    # 5金 -> 3金
+                    {"text": "買木 (3 金 -> 10 木頭)", "cost": {"gold": 3}, "effect": "buy_wood"},
                     {"text": "離開", "cost": {}, "effect": "none"}
                 ]
             },
             {
                 "title": "防禦工程", "desc": "工匠建議修牆。",
                 "options": [
-                    {"text": "堅固圍牆 (10 木 -> +50 HP)", "cost": {"wood": 10}, "effect": "build_wall_strong"},
-                    {"text": "簡易修補 (3 木 -> +15 HP)", "cost": {"wood": 3}, "effect": "build_wall_weak"},
+                    # 10木 -> 8木
+                    {"text": "堅固圍牆 (8 木 -> +50 HP)", "cost": {"wood": 8}, "effect": "build_wall_strong"},
+                    # 3木 -> 2木
+                    {"text": "簡易修補 (2 木 -> +15 HP)", "cost": {"wood": 2}, "effect": "build_wall_weak"},
                     {"text": "暫不建設", "cost": {}, "effect": "none"}
                 ]
             }
@@ -132,25 +143,22 @@ class EventManager:
         self.active_event = random.choice(events)
 
     def handle_input(self, key):
-        # 1. 如果正在顯示結果，按任意鍵關閉
         if self.showing_result:
             self.active_event = None
             self.showing_result = False
             return True 
 
-        # 2. 如果正在顯示選項
         if not self.active_event: return False
         
         choice = None
         if key == pygame.K_1: choice = 0
         elif key == pygame.K_2: choice = 1
         elif key == pygame.K_3: choice = 2
-        elif key == pygame.K_4: choice = 3 # [支援] 第4個選項
+        elif key == pygame.K_4: choice = 3
         
         if choice is not None and choice < len(self.active_event["options"]):
             opt = self.active_event["options"][choice]
             
-            # 檢查資源夠不夠
             can_afford = True
             if "gold" in opt["cost"] and self.engine.gold < opt["cost"]["gold"]: can_afford = False
             if "wood" in opt["cost"] and self.engine.wood < opt["cost"]["wood"]: can_afford = False
@@ -161,12 +169,10 @@ class EventManager:
                 self.showing_result = True
                 return False 
             
-            # 扣除資源
             if "gold" in opt["cost"]: self.engine.gold -= opt["cost"]["gold"]
             if "wood" in opt["cost"]: self.engine.wood -= opt["cost"]["wood"]
             if "food" in opt["cost"]: self.engine.food -= opt["cost"]["food"]
             
-            # 執行效果
             self.apply_effect(opt["effect"])
             self.showing_result = True
             return False 
@@ -177,29 +183,29 @@ class EventManager:
         self.result_text = title
         self.result_detail = detail
         if is_good:
-            self.result_color = (100, 255, 100) # 綠色
+            self.result_color = (100, 255, 100) 
         else:
-            self.result_color = (255, 100, 100) # 紅色
+            self.result_color = (255, 100, 100) 
         self.engine.log_event(detail)
 
     def apply_effect(self, effect_name):
         rand = random.random() 
 
-        # --- [新增] 黑市商人效果 ---
+        # --- [修改] 黑市商人效果 (加量) ---
         if effect_name == "shop_food_bulk":
-            self.engine.food += 100
-            self.set_result(True, "購買成功", "倉庫堆滿了糧食 (+100 食物)")
+            self.engine.food += 150
+            self.set_result(True, "購買成功", "這下不怕餓死了！ (+150 食物)")
             
         elif effect_name == "shop_wood_bulk":
-            self.engine.wood += 40
-            self.set_result(True, "購買成功", "獲得大量優質木材 (+40 木頭)")
+            self.engine.wood += 60
+            self.set_result(True, "購買成功", "堆積如山的木材 (+60 木頭)")
             
         elif effect_name == "shop_repair_wall":
-            self.engine.wall_hp += 150
-            self.set_result(True, "修復完成", "傭兵把城牆修得像新的一樣 (+150 HP)")
+            self.engine.wall_hp += 250
+            self.set_result(True, "修復完成", "城牆堅不可摧！ (+250 HP)")
             
         elif effect_name == "shop_mystery_box":
-            # 盲盒邏輯：40% 大獎, 30% 小獎, 30% 詐騙
+            # 盲盒
             dice = random.randint(1, 10)
             if dice <= 4: # 大獎 (40%)
                 reward_type = random.choice(["JACKPOT", "SPEED"])
@@ -207,30 +213,26 @@ class EventManager:
                     self.engine.food += 100
                     self.engine.wood += 50
                     self.engine.wall_hp += 100
-                    self.set_result(True, "大獎！！！", "傳說級物資箱！資源與城牆大補給！")
+                    self.set_result(True, "大獎！！！", "運氣爆棚！資源與城牆大補給！")
                 else:
                     for v in self.engine.villagers: v.speed *= 1.3
-                    self.set_result(True, "神秘藥水", "全村喝了奇怪的藥水，移動速度永久+30%！")
+                    self.set_result(True, "神秘藥水", "村民喝了奇怪的藥水，移動變快了！")
                     
             elif dice <= 7: # 普通 (30%)
-                self.engine.gold += 10 
-                self.engine.food += 20
-                self.set_result(True, "普通獎", "裡面只有一些餅乾和零錢...")
+                self.engine.gold += 5  # 退一半錢
+                self.engine.food += 30
+                self.set_result(True, "普通獎", "裡面有一些乾糧和零錢。")
                 
             else: # 詐騙 (30%)
-                self.set_result(False, "被騙了！", "箱子打開是空的...奸商已經跑了！")
+                self.set_result(False, "被騙了！", "箱子是空的...奸商！退錢！")
 
-        # --- 以下是原本的隨機事件效果 ---
+        # --- 既有事件 ---
         elif effect_name == "risk_food_tree_low":
-            if rand < 0.7: 
-                self.engine.food += 10; self.set_result(True, "成功", "獲得 10 食物")
-            else: 
-                self.engine.food = max(0, self.engine.food - 5); self.set_result(False, "失敗", "損失 5 食物")
+            if rand < 0.7: self.engine.food += 10; self.set_result(True, "成功", "獲得 10 食物")
+            else: self.engine.food = max(0, self.engine.food - 5); self.set_result(False, "失敗", "損失 5 食物")
         elif effect_name == "risk_food_tree_high":
-            if rand < 0.5: 
-                self.engine.food += 40; self.set_result(True, "大成功", "獲得 40 食物")
-            else: 
-                self.engine.food = max(0, self.engine.food - 10); self.set_result(False, "失敗", "損失 10 食物")
+            if rand < 0.5: self.engine.food += 40; self.set_result(True, "大成功", "獲得 40 食物")
+            else: self.engine.food = max(0, self.engine.food - 10); self.set_result(False, "失敗", "損失 10 食物")
         elif effect_name == "risk_food_mushroom_low":
             if rand < 0.8: self.engine.food += 15; self.set_result(True, "成功", "獲得 15 食物")
             else: self.engine.food = max(0, self.engine.food - 5); self.set_result(False, "失敗", "損失 5 食物")
@@ -243,12 +245,15 @@ class EventManager:
         elif effect_name == "risk_wood_mine_high":
             if rand < 0.5: self.engine.wood += 25; self.set_result(True, "大成功", "獲得 25 木頭")
             else: self.engine.wall_hp = max(0, self.engine.wall_hp - 15); self.set_result(False, "失敗", "圍牆受損 -15")
+        
+        # [修改] 旅人黃金獲得量增加
         elif effect_name == "risk_gold_traveler_low":
-            if rand < 0.7: self.engine.gold += 5; self.set_result(True, "成功", "獲得 5 黃金")
+            if rand < 0.7: self.engine.gold += 8; self.set_result(True, "成功", "獲得 8 黃金")
             else: self.engine.gold = max(0, self.engine.gold - 2); self.set_result(False, "失敗", "損失 2 黃金")
         elif effect_name == "risk_gold_traveler_high":
-            if rand < 0.5: self.engine.gold += 20; self.set_result(True, "大成功", "獲得 20 黃金")
+            if rand < 0.5: self.engine.gold += 25; self.set_result(True, "大成功", "獲得 25 黃金")
             else: self.engine.gold = max(0, self.engine.gold - 15); self.set_result(False, "失敗", "損失 15 黃金")
+            
         elif effect_name == "risk_speed_low":
             if rand < 0.7:
                 for v in self.engine.villagers: v.speed *= 1.1 
@@ -261,8 +266,10 @@ class EventManager:
             else:
                 for v in self.engine.villagers: v.speed *= 0.7 
                 self.set_result(False, "中毒", "速度變慢")
+        
+        # [修改] 交易事件效果
         elif effect_name == "buy_food": self.engine.food += 30; self.set_result(True, "交易", "獲得 30 食物")
-        elif effect_name == "buy_wood": self.engine.wood += 5; self.set_result(True, "交易", "獲得 5 木頭")
+        elif effect_name == "buy_wood": self.engine.wood += 10; self.set_result(True, "交易", "獲得 10 木頭")
         elif effect_name == "build_wall_strong": self.engine.wall_hp += 50; self.set_result(True, "建設", "牆壁 +50 HP")
         elif effect_name == "build_wall_weak": self.engine.wall_hp += 15; self.set_result(True, "修補", "牆壁 +15 HP")
         elif effect_name == "none": self.set_result(True, "離開", "無事發生")
@@ -270,7 +277,6 @@ class EventManager:
     def draw(self, screen):
         if not self.active_event: return
         
-        # 背景遮罩
         overlay = pygame.Surface((screen.get_width(), screen.get_height()))
         overlay.set_alpha(150)
         overlay.fill((0,0,0))
@@ -279,7 +285,7 @@ class EventManager:
         cx, cy = screen.get_width()//2, screen.get_height()//2
         w, h = 700, 450 
         
-        # --- 模式 2: 顯示結算畫面 ---
+        # 顯示結算
         if self.showing_result:
             pygame.draw.rect(screen, (20, 20, 30), (cx-w//2, cy-h//2, w, h))
             pygame.draw.rect(screen, self.result_color, (cx-w//2, cy-h//2, w, h), 4)
@@ -294,15 +300,15 @@ class EventManager:
             screen.blit(hint, (cx - hint.get_width()//2, cy + h//2 - 40))
             return
             
-        # --- 模式 1: 顯示選項畫面 ---
+        # 顯示選項
         if "shop" in self.active_event["options"][0]["effect"]:
-            border_color = (255, 215, 0) # 金色
+            border_color = (255, 215, 0)
             title_color = (255, 255, 0)
         elif "risk" in self.active_event["options"][0]["effect"]:
-            border_color = (200, 100, 255) # 紫色
+            border_color = (200, 100, 255)
             title_color = (255, 100, 255)
         else:
-            border_color = (100, 200, 255) # 藍色
+            border_color = (100, 200, 255)
             title_color = (255, 215, 0)
 
         pygame.draw.rect(screen, (30, 30, 40), (cx-w//2, cy-h//2, w, h))
@@ -316,14 +322,13 @@ class EventManager:
         
         y = cy - h//2 + 130
         for i, opt in enumerate(self.active_event["options"]):
-            # 檢查錢夠不夠
             can_afford = True
             if "gold" in opt["cost"] and self.engine.gold < opt["cost"]["gold"]: can_afford = False
             if "wood" in opt["cost"] and self.engine.wood < opt["cost"]["wood"]: can_afford = False
             
             if len(opt["cost"]) == 0: color = (150, 255, 150)
             elif can_afford: color = (100, 255, 255)
-            else: color = (100, 100, 100) # 買不起變灰色
+            else: color = (100, 100, 100)
             
             text_surf = self.engine.font.render(f"{i+1}. {opt['text']}", True, color)
             screen.blit(text_surf, (cx - w//2 + 40, y))

@@ -4,7 +4,6 @@ import os
 import config
 from models.resource import Resource
 from models.villager import Villager
-# 引入所有 5 位英雄
 from models.hero import SonicHero, HealerHero, TycoonHero, BuilderHero, OracleHero
 from models.event_system import EventManager
 
@@ -49,6 +48,44 @@ class GameEngine:
         
         self.event_manager = EventManager(self)
         self.is_paused = False
+        
+        # --- [新增] 難度參數 ---
+        self.difficulty = "Normal"
+        self.spawn_rate = 15      # 每天生成多少資源
+        self.night_dmg_min = 15   # 夜襲最小傷害
+        self.night_dmg_max = 40   # 夜襲最大傷害
+        self.is_hell_mode = False # 地獄模式開關 (死人即結束)
+
+    def apply_difficulty_settings(self, level):
+        """根據選擇的難度調整遊戲參數"""
+        self.difficulty = level
+        
+        if level == "Normal":
+            # 預設值
+            config.HUNGER_RATE = 0.1
+            self.spawn_rate = 15
+            self.night_dmg_min = 15
+            self.night_dmg_max = 40
+            self.is_hell_mode = False
+            self.log_event("難度設定：一般。祝你好運！")
+
+        elif level == "Hard":
+            # 資源少、餓得快、打得痛
+            config.HUNGER_RATE = 0.15 # 餓比較快
+            self.spawn_rate = 10      # 資源變少
+            self.night_dmg_min = 30
+            self.night_dmg_max = 60
+            self.is_hell_mode = False
+            self.log_event("難度設定：困難。資源將會非常稀缺...")
+
+        elif level == "Hell":
+            # 極限生存
+            config.HUNGER_RATE = 0.2  # 餓超快
+            self.spawn_rate = 8       # 資源極少
+            self.night_dmg_min = 50   # 牆壁可能被秒殺
+            self.night_dmg_max = 100
+            self.is_hell_mode = True  # 只要有人死就 Game Over
+            self.log_event("難度設定：地獄。只要死一個人，遊戲結束。")
 
     def init_world(self, hero_choice):
         # 1. 生成普通村民
@@ -57,31 +94,35 @@ class GameEngine:
         for i in range(5):
             self.villagers.append(Villager(self, f"農夫{i}", (100, 100, 255), "Farmer"))
             
-        # 2. 生成玩家選擇的英雄 (5選1)
+        # 2. 生成玩家選擇的英雄
         hero = None
         if hero_choice == 1:
             hero = SonicHero(self, "艾里奧")
-            self.log_event("【迅捷之風】艾里奧 加入！(移速極快)")
+            self.log_event("【迅捷之風】艾里奧 加入！")
         elif hero_choice == 2:
             hero = TycoonHero(self, "摩根")
-            self.log_event("【黃金之手】摩根 加入！(自動產金)")
+            self.log_event("【黃金之手】摩根 加入！")
         elif hero_choice == 3:
             hero = HealerHero(self, "芙蕾雅")
-            self.log_event("【守護者】芙蕾雅 加入！(治療傷患)")
+            self.log_event("【守護者】芙蕾雅 加入！")
         elif hero_choice == 4:
             hero = BuilderHero(self, "泰坦")
-            self.log_event("【堅毅之盾】泰坦 加入！(自動修牆)")
+            self.log_event("【堅毅之盾】泰坦 加入！")
         elif hero_choice == 5:
             hero = OracleHero(self, "瑟蕾絲")
-            self.log_event("【豐收女神】瑟蕾絲 加入！(全體抗餓)")
+            self.log_event("【豐收女神】瑟蕾絲 加入！")
             
         if hero:
             hero.pos.x = self.map_width // 2
             hero.pos.y = self.map_height // 2
             self.villagers.append(hero)
 
-        # 3. 生成資源
-        self.spawn_resources(30)
+        # 3. 生成初始資源
+        # 根據難度決定初始資源量
+        initial_res = 30
+        if self.difficulty == "Hard": initial_res = 20
+        if self.difficulty == "Hell": initial_res = 10
+        self.spawn_resources(initial_res)
 
     def spawn_resources(self, count):
         for _ in range(count):
@@ -120,8 +161,8 @@ class GameEngine:
             self.frame_count = 0
             self.log_event("--- 新的一天 ---")
             
-            # 夜襲系統
-            attack_damage = random.randint(15, 40)
+            # --- [修改] 夜襲傷害改用變數 ---
+            attack_damage = random.randint(self.night_dmg_min, self.night_dmg_max)
             
             if self.wall_hp > 0:
                 actual_dmg = min(self.wall_hp, attack_damage)
@@ -139,11 +180,19 @@ class GameEngine:
                     victim.is_alive = False
                     self.log_event(f"😱 慘劇：{victim.name} 被咬死了！")
                     self.show_notification(f"😱 慘劇！{victim.name} 死亡", (200, 0, 0))
+                    
+                    # --- [新增] 地獄模式判定 ---
+                    if self.is_hell_mode:
+                        self.log_event("地獄模式規則：有人死亡，遊戲結束！")
+                        # 讓所有人都死掉，觸發 Game Over
+                        for v in self.villagers: v.is_alive = False
+                    # -------------------------
                 else:
                     self.log_event("昨晚運氣好，野獸沒有發現村民")
                     self.show_notification("昨晚平安無事", (100, 255, 100))
 
-            self.spawn_resources(15)
+            # --- [修改] 資源生成量改用變數 ---
+            self.spawn_resources(self.spawn_rate)
             
             pop = sum(1 for v in self.villagers if v.is_alive)
             if pop > self.last_pop_milestone:
@@ -202,17 +251,23 @@ class GameEngine:
         base_y = 95 
         self.screen.blit(self.title_font.render(f"Day: {self.day} / 15", True, config.COLOR_TEXT), (ui_x+10, base_y))
         
+        # 顯示當前難度
+        diff_color = (200, 200, 200)
+        if self.difficulty == "Hard": diff_color = (255, 100, 100)
+        if self.difficulty == "Hell": diff_color = (255, 0, 0)
+        self.screen.blit(self.font.render(f"Mode: {self.difficulty}", True, diff_color), (ui_x+10, base_y + 35))
+
         pop = sum(1 for v in self.villagers if v.is_alive)
-        self.screen.blit(self.font.render(f"Pop: {pop}", True, config.COLOR_TEXT), (ui_x+10, base_y + 35))
+        self.screen.blit(self.font.render(f"Pop: {pop}", True, config.COLOR_TEXT), (ui_x+10, base_y + 70))
         
         p_str = f"Prosperity: {int(self.prosperity)}"
-        self.screen.blit(self.font.render(p_str, True, (200, 100, 255)), (ui_x+10, base_y + 70))
+        self.screen.blit(self.font.render(p_str, True, (200, 100, 255)), (ui_x+10, base_y + 105))
         
         bar_w = 200 * min(1.0, self.prosperity/2000)
-        pygame.draw.rect(self.screen, (50,50,50), (ui_x+10, base_y + 90, 200, 10))
-        pygame.draw.rect(self.screen, (138,43,226), (ui_x+10, base_y + 90, bar_w, 10))
+        pygame.draw.rect(self.screen, (50,50,50), (ui_x+10, base_y + 125, 200, 10))
+        pygame.draw.rect(self.screen, (138,43,226), (ui_x+10, base_y + 125, bar_w, 10))
 
-        log_y = base_y + 120
+        log_y = base_y + 155
         pygame.draw.line(self.screen, (100,100,100), (ui_x, log_y - 10), (ui_x+config.UI_WIDTH, log_y - 10), 1)
         for l in self.logs:
             self.screen.blit(self.font.render(l, True, (200,200,200)), (ui_x+10, log_y))
@@ -259,12 +314,12 @@ class GameEngine:
                 "【生存挑戰】目標：活到第 15 天",
                 "-----------------------------",
                 "1. 選擇你的領袖英雄，這將決定你的生存策略。",
-                "2. 前三天充滿未知風險，第四天起開放交易。",
-                "3. 資源管理：木頭修牆，黃金買糧。",
-                "4. 繁榮度：決定最終過關時的評價 (S/A/B)。",
+                "2. 選擇遊戲難度：挑戰你的極限。",
+                "3. 前三天充滿未知風險，第四天起開放交易。",
+                "4. 資源管理：木頭修牆，黃金買糧。",
                 "5. 只要看到 [Day 15] 出現，即視為勝利！",
                 "-----------------------------",
-                "按 [任意鍵] 進入英雄選擇"
+                "按 [任意鍵] 繼續"
             ]
             
             y = 200
@@ -283,74 +338,41 @@ class GameEngine:
                     waiting = False
         return True
 
-    # --- [修改] 修正版面後的 5 位英雄選擇畫面 ---
+    # --- 英雄選擇 (緊湊版) ---
     def hero_selection_screen(self):
         selected_hero = None
         while selected_hero is None:
             self.screen.fill((15, 15, 25))
             
-            # 標題稍微往上移
-            title = self.title_font.render("請選擇一位開局領袖", True, (255, 255, 255))
+            title = self.title_font.render("STEP 1: 選擇一位開局領袖", True, (255, 255, 255))
             self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 40))
             
-            # 定義 5 個選項
             options = [
-                {
-                    "key": "[1]", "color": (100, 255, 100),
-                    "name": "迅捷之風 - 艾里奧",
-                    "desc": "極致速度(Spd 2.5)。掃蕩全圖資源，適合擴張流。"
-                },
-                {
-                    "key": "[2]", "color": (255, 215, 0),
-                    "name": "黃金之手 - 摩根",
-                    "desc": "煉金術。隨時間自動產出黃金，適合貿易流。"
-                },
-                {
-                    "key": "[3]", "color": (255, 100, 255),
-                    "name": "守護者 - 芙蕾雅",
-                    "desc": "治癒光環。自動治療受傷村民，降低死亡率。"
-                },
-                {
-                    "key": "[4]", "color": (180, 180, 180),
-                    "name": "堅毅之盾 - 泰坦",
-                    "desc": "工程修復。每秒自動免費修補城牆，防禦流必備。"
-                },
-                {
-                    "key": "[5]", "color": (255, 140, 0),
-                    "name": "豐收女神 - 瑟蕾絲",
-                    "desc": "神之恩惠。定期降低全員飢餓度，養活大量人口。"
-                }
+                {"key": "[1]", "color": (100, 255, 100), "name": "迅捷之風 - 艾里奧", "desc": "極致速度(Spd 2.5)。掃蕩全圖資源，適合擴張流。"},
+                {"key": "[2]", "color": (255, 215, 0), "name": "黃金之手 - 摩根", "desc": "煉金術。隨時間自動產出黃金，適合貿易流。"},
+                {"key": "[3]", "color": (255, 100, 255), "name": "守護者 - 芙蕾雅", "desc": "治癒光環。自動治療受傷村民，降低死亡率。"},
+                {"key": "[4]", "color": (180, 180, 180), "name": "堅毅之盾 - 泰坦", "desc": "工程修復。每秒自動免費修補城牆，防禦流必備。"},
+                {"key": "[5]", "color": (255, 140, 0), "name": "豐收女神 - 瑟蕾絲", "desc": "神之恩惠。定期降低全員飢餓度，養活大量人口。"}
             ]
             
-            # --- [調整] 緊湊版面 ---
-            y = 100  # 起始高度往上
+            y = 100
             cx = self.map_width // 2 + 100 
             
             for opt in options:
-                # 外框
                 rect_x = cx - 350
                 rect_w = 700
-                rect_h = 75 # 高度縮小
-                
-                # 畫框框背景與邊框
+                rect_h = 75
                 pygame.draw.rect(self.screen, (30, 30, 40), (rect_x, y, rect_w, rect_h))
                 pygame.draw.rect(self.screen, opt["color"], (rect_x, y, rect_w, rect_h), 2)
                 
-                # 選項編號 [1]
                 key_text = self.large_font.render(opt["key"], True, opt["color"])
                 self.screen.blit(key_text, (rect_x + 20, y + 15))
-                
-                # 名字
                 name_text = self.title_font.render(opt["name"], True, (255, 255, 255))
                 self.screen.blit(name_text, (rect_x + 100, y + 10))
-                
-                # 描述
                 desc_text = self.font.render(opt["desc"], True, (200, 200, 200))
                 self.screen.blit(desc_text, (rect_x + 100, y + 45))
-                
-                y += 85 # 間距縮小
+                y += 85
             
-            # 提示文字往上拉
             hint = self.font.render("按鍵盤 [1] ~ [5] 確認選擇", True, (150, 150, 150))
             self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 540))
 
@@ -369,6 +391,68 @@ class GameEngine:
         
         return selected_hero
 
+    # --- [新增] 難度選擇畫面 ---
+    def difficulty_selection_screen(self):
+        selected_diff = None
+        while selected_diff is None:
+            self.screen.fill((20, 10, 10))
+            
+            title = self.title_font.render("STEP 2: 選擇挑戰難度", True, (255, 200, 200))
+            self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 100))
+            
+            options = [
+                {
+                    "key": "[1]", "name": "一般 (Normal)", "color": (100, 255, 100),
+                    "desc": "標準體驗。資源充足，敵人強度適中。"
+                },
+                {
+                    "key": "[2]", "name": "困難 (Hard)", "color": (255, 165, 0),
+                    "desc": "資源稀缺 (Spawn -30%)，飢餓速度加快，夜襲傷害倍增。"
+                },
+                {
+                    "key": "[3]", "name": "地獄 (Hell)", "color": (255, 0, 0),
+                    "desc": "極限挑戰。資源極少，且只要死亡任何一人，遊戲直接結束。"
+                }
+            ]
+            
+            y = 200
+            cx = self.map_width // 2 + 100 
+            
+            for opt in options:
+                rect_x = cx - 300
+                rect_w = 600
+                rect_h = 100
+                
+                pygame.draw.rect(self.screen, (40, 20, 20), (rect_x, y, rect_w, rect_h))
+                pygame.draw.rect(self.screen, opt["color"], (rect_x, y, rect_w, rect_h), 2)
+                
+                key_text = self.large_font.render(opt["key"], True, opt["color"])
+                self.screen.blit(key_text, (rect_x + 30, y + 25))
+                
+                name_text = self.title_font.render(opt["name"], True, (255, 255, 255))
+                self.screen.blit(name_text, (rect_x + 120, y + 20))
+                
+                desc_text = self.font.render(opt["desc"], True, (200, 200, 200))
+                self.screen.blit(desc_text, (rect_x + 120, y + 60))
+                
+                y += 120
+            
+            hint = self.font.render("按鍵盤 [1] [2] [3] 確認難度", True, (150, 150, 150))
+            self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 580))
+            
+            pygame.display.flip()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return None
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_1: selected_diff = "Normal"
+                    if event.key == pygame.K_2: selected_diff = "Hard"
+                    if event.key == pygame.K_3: selected_diff = "Hell"
+                    
+        return selected_diff
+
     def game_over_screen(self):
         while True:
             overlay = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
@@ -379,8 +463,16 @@ class GameEngine:
             title = self.large_font.render("GAME OVER", True, (255, 50, 50))
             self.screen.blit(title, (self.screen.get_width()//2 - title.get_width()//2, 200))
             
-            score_text = self.title_font.render(f"存活天數: {self.day} 天 | 失敗...", True, (255, 255, 255))
-            self.screen.blit(score_text, (self.screen.get_width()//2 - score_text.get_width()//2, 300))
+            if self.is_hell_mode and len(self.villagers) > 0:
+                 reason = "地獄模式：有人犧牲了..."
+            else:
+                 reason = "村莊已滅亡..."
+                 
+            reason_text = self.title_font.render(reason, True, (200, 50, 50))
+            self.screen.blit(reason_text, (self.screen.get_width()//2 - reason_text.get_width()//2, 260))
+
+            score_text = self.title_font.render(f"存活天數: {self.day} 天", True, (255, 255, 255))
+            self.screen.blit(score_text, (self.screen.get_width()//2 - score_text.get_width()//2, 320))
             
             hint = self.font.render("按 [ESC] 離開遊戲", True, (200, 200, 200))
             self.screen.blit(hint, (self.screen.get_width()//2 - hint.get_width()//2, 400))
@@ -410,6 +502,10 @@ class GameEngine:
             self.screen.blit(sub, (self.screen.get_width()//2 - sub.get_width()//2, 210))
             
             final_score = int(self.prosperity)
+            # 困難模式加分
+            if self.difficulty == "Hard": final_score = int(final_score * 1.5)
+            if self.difficulty == "Hell": final_score = int(final_score * 3.0)
+            
             rank = "C"
             rank_color = (200, 200, 200)
             comment = "勉強倖存的難民營"
@@ -434,7 +530,7 @@ class GameEngine:
             self.screen.blit(comment_text, (self.screen.get_width()//2 - comment_text.get_width()//2, 330))
 
             pop = len([v for v in self.villagers if v.is_alive])
-            score_text = self.font.render(f"最終繁榮度: {final_score} | 倖存人口: {pop}", True, (200, 200, 255))
+            score_text = self.font.render(f"最終繁榮度({self.difficulty}): {final_score} | 倖存人口: {pop}", True, (200, 200, 255))
             self.screen.blit(score_text, (self.screen.get_width()//2 - score_text.get_width()//2, 380))
             
             hint = self.font.render("按 [ESC] 離開遊戲", True, (200, 200, 200))
@@ -452,13 +548,22 @@ class GameEngine:
                         return
 
     def run(self):
+        # 1. 開始畫面
         if not self.start_screen():
             return
             
+        # 2. 英雄選擇
         hero_choice = self.hero_selection_screen()
         if hero_choice is None:
             return
             
+        # 3. [新增] 難度選擇
+        diff_choice = self.difficulty_selection_screen()
+        if diff_choice is None:
+            return
+            
+        # 4. 套用難度並初始化世界
+        self.apply_difficulty_settings(diff_choice)
         self.init_world(hero_choice)
 
         running = True
@@ -467,6 +572,7 @@ class GameEngine:
             self.update()
             self.draw()
             
+            # 檢查死亡條件
             living_villagers = [v for v in self.villagers if v.is_alive]
             if len(living_villagers) == 0:
                 self.log_event("村莊已滅亡...")

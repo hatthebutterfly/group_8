@@ -13,11 +13,13 @@ class GameEngine:
         self.map_width = config.INITIAL_MAP_WIDTH
         self.map_height = config.INITIAL_MAP_HEIGHT
         self.screen = pygame.display.set_mode((self.map_width + config.UI_WIDTH, self.map_height))
-        # --- [修改] 標題改回正常 ---
-        pygame.display.set_caption("Village Sim: Survival")
+        
+        # 設定視窗標題
+        pygame.display.set_caption("Village Sim: 15 Days Challenge")
         
         self.clock = pygame.time.Clock()
         
+        # 字體設定
         if os.path.exists(config.FONT_FILE):
             print(f"成功載入字體: {config.FONT_FILE}")
             self.font = pygame.font.Font(config.FONT_FILE, 20)
@@ -37,12 +39,13 @@ class GameEngine:
         self.last_pop_milestone = 5
         self.prosperity = 0
         
+        # 資源庫存
         self.food = 0
         self.wood = 0
         self.gold = 0
-        self.wall_hp = 0
+        self.wall_hp = 0  # 牆壁耐久度
         
-        # 通知系統
+        # 通知系統變數
         self.notification_text = ""
         self.notification_timer = 0
         self.notification_color = (255, 50, 50)
@@ -98,12 +101,13 @@ class GameEngine:
     def show_notification(self, text, color=(255, 50, 50)):
         self.notification_text = text
         self.notification_color = color
-        self.notification_timer = 180
+        self.notification_timer = 180  # 顯示約 3 秒
 
     def update(self):
         if self.is_paused: return
         self.frame_count += 1
         
+        # 通知計時器倒數
         if self.notification_timer > 0:
             self.notification_timer -= 1
         
@@ -112,7 +116,7 @@ class GameEngine:
             self.frame_count = 0
             self.log_event("--- 新的一天 ---")
             
-            # 夜襲系統
+            # --- 夜襲系統 ---
             attack_damage = random.randint(15, 40)
             
             if self.wall_hp > 0:
@@ -134,6 +138,7 @@ class GameEngine:
                 else:
                     self.log_event("昨晚運氣好，野獸沒有發現村民")
                     self.show_notification("昨晚平安無事", (100, 255, 100))
+            # ----------------
 
             self.spawn_resources(15)
             
@@ -175,12 +180,15 @@ class GameEngine:
 
     def draw_ui(self):
         ui_x = self.map_width
+        
+        # UI 背景
         pygame.draw.rect(self.screen, config.COLOR_UI, (ui_x, 0, config.UI_WIDTH, self.map_height))
         pygame.draw.line(self.screen, (100,100,100), (ui_x, 0), (ui_x, self.map_height), 2)
         
         icon_y = 25
         text_y = 18
         
+        # 資源顯示
         pygame.draw.circle(self.screen, config.COLOR_FOOD, (ui_x + 20, icon_y), 8)
         self.screen.blit(self.font.render(f"{int(self.food)}", True, config.COLOR_TEXT), (ui_x + 35, text_y))
         pygame.draw.circle(self.screen, config.COLOR_WOOD, (ui_x + 90, icon_y), 8)
@@ -188,6 +196,7 @@ class GameEngine:
         pygame.draw.circle(self.screen, config.COLOR_GOLD, (ui_x + 160, icon_y), 8)
         self.screen.blit(self.font.render(f"{int(self.gold)}", True, config.COLOR_TEXT), (ui_x + 175, text_y))
         
+        # 牆壁血量
         wall_y = 55
         wall_color = (100, 200, 255) if self.wall_hp > 0 else (255, 100, 100)
         wall_txt = f"Wall HP: {self.wall_hp}"
@@ -195,11 +204,13 @@ class GameEngine:
         
         pygame.draw.line(self.screen, (80,80,80), (ui_x + 10, 80), (ui_x + config.UI_WIDTH - 10, 80), 1)
 
+        # 遊戲進度資訊
         base_y = 95 
-        self.screen.blit(self.title_font.render(f"Day: {self.day}", True, config.COLOR_TEXT), (ui_x+10, base_y))
+        # 顯示目標天數
+        self.screen.blit(self.title_font.render(f"Day: {self.day} / 15", True, config.COLOR_TEXT), (ui_x+10, base_y))
         
         pop = sum(1 for v in self.villagers if v.is_alive)
-        self.screen.blit(self.font.render(f"Pop: {pop} (Next Exp: {self.last_pop_milestone+2})", True, config.COLOR_TEXT), (ui_x+10, base_y + 35))
+        self.screen.blit(self.font.render(f"Pop: {pop}", True, config.COLOR_TEXT), (ui_x+10, base_y + 35))
         
         p_str = f"Prosperity: {int(self.prosperity)}"
         self.screen.blit(self.font.render(p_str, True, (200, 100, 255)), (ui_x+10, base_y + 70))
@@ -208,6 +219,7 @@ class GameEngine:
         pygame.draw.rect(self.screen, (50,50,50), (ui_x+10, base_y + 90, 200, 10))
         pygame.draw.rect(self.screen, (138,43,226), (ui_x+10, base_y + 90, bar_w, 10))
 
+        # Logs
         log_y = base_y + 120
         pygame.draw.line(self.screen, (100,100,100), (ui_x, log_y - 10), (ui_x+config.UI_WIDTH, log_y - 10), 1)
         for l in self.logs:
@@ -225,6 +237,7 @@ class GameEngine:
             self.event_manager.draw(self.screen)
         else: 
             self.draw_ui()
+            # 繪製紅色警報通知
             if self.notification_timer > 0:
                 cx, cy = self.map_width // 2, self.map_height // 2
                 text_surf = self.large_font.render(self.notification_text, True, self.notification_color)
@@ -244,23 +257,27 @@ class GameEngine:
         
         pygame.display.flip()
 
+    # --- 開始畫面 ---
     def start_screen(self):
         waiting = True
         while waiting:
             self.screen.fill((20, 20, 30))
-            # --- [修改] 標題與說明文字 ---
-            title = self.large_font.render("Village Sim: Survival", True, (255, 215, 0))
+            
+            # 標題
+            title = self.large_font.render("Village Sim: 15 Days Challenge", True, (255, 215, 0))
             self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 100))
 
+            # 說明文字
             instructions = [
-                "歡迎來到生存挑戰！",
+                "【生存挑戰】目標：活到第 15 天",
                 "-----------------------------",
                 "1. 前三天充滿未知：只會發生隨機的幸運或厄運事件。",
                 "2. 第四天起：商人會出現，開放資源交易與修牆。",
                 "3. 資源管理：木頭可用於修牆，黃金可用於購買糧食。",
                 "4. 小心夜襲：沒有圍牆的村莊，村民隨時會死亡。",
+                "5. 只要看到 [Day 15] 出現，即視為勝利！",
                 "-----------------------------",
-                "按 [任意鍵] 開始遊戲"
+                "按 [任意鍵] 開始挑戰"
             ]
             
             y = 200
@@ -279,6 +296,7 @@ class GameEngine:
                     waiting = False
         return True
 
+    # --- 失敗畫面 ---
     def game_over_screen(self):
         while True:
             overlay = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
@@ -289,7 +307,7 @@ class GameEngine:
             title = self.large_font.render("GAME OVER", True, (255, 50, 50))
             self.screen.blit(title, (self.screen.get_width()//2 - title.get_width()//2, 200))
             
-            score_text = self.title_font.render(f"存活天數: {self.day} 天 | 最終繁榮度: {int(self.prosperity)}", True, (255, 255, 255))
+            score_text = self.title_font.render(f"存活天數: {self.day} 天 | 失敗...", True, (255, 255, 255))
             self.screen.blit(score_text, (self.screen.get_width()//2 - score_text.get_width()//2, 300))
             
             hint = self.font.render("按 [ESC] 離開遊戲", True, (200, 200, 200))
@@ -306,7 +324,41 @@ class GameEngine:
                         pygame.quit()
                         return
 
+    # --- 勝利畫面 ---
+    def game_won_screen(self):
+        while True:
+            # 金色勝利背景
+            overlay = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
+            overlay.set_alpha(200)
+            overlay.fill((0, 0, 0))
+            self.screen.blit(overlay, (0, 0))
+            
+            title = self.large_font.render("VICTORY!", True, (255, 215, 0))
+            self.screen.blit(title, (self.screen.get_width()//2 - title.get_width()//2, 200))
+            
+            sub = self.title_font.render("你成功生存了 15 天！", True, (255, 255, 255))
+            self.screen.blit(sub, (self.screen.get_width()//2 - sub.get_width()//2, 260))
+            
+            pop = len([v for v in self.villagers if v.is_alive])
+            score_text = self.font.render(f"最終繁榮度: {int(self.prosperity)} | 倖存人口: {pop}", True, (200, 200, 255))
+            self.screen.blit(score_text, (self.screen.get_width()//2 - score_text.get_width()//2, 320))
+            
+            hint = self.font.render("按 [ESC] 離開遊戲", True, (200, 200, 200))
+            self.screen.blit(hint, (self.screen.get_width()//2 - hint.get_width()//2, 400))
+            
+            pygame.display.flip()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        return
+
     def run(self):
+        # 1. 顯示開始畫面
         if not self.start_screen():
             return
 
@@ -316,12 +368,21 @@ class GameEngine:
             self.update()
             self.draw()
             
+            # 2. 檢查失敗條件 (全滅)
             living_villagers = [v for v in self.villagers if v.is_alive]
             if len(living_villagers) == 0:
                 self.log_event("村莊已滅亡...")
                 self.draw()
                 pygame.time.delay(1000)
                 self.game_over_screen()
+                running = False
+            
+            # 3. 檢查勝利條件 (第15天)
+            if self.day >= 15:
+                self.log_event("目標達成！遊戲勝利！")
+                self.draw()
+                pygame.time.delay(1000)
+                self.game_won_screen()
                 running = False
             
             self.clock.tick(config.FPS)

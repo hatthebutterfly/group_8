@@ -14,12 +14,10 @@ class GameEngine:
         self.map_height = config.INITIAL_MAP_HEIGHT
         self.screen = pygame.display.set_mode((self.map_width + config.UI_WIDTH, self.map_height))
         
-        # 設定視窗標題
         pygame.display.set_caption("Village Sim: 15 Days Challenge")
         
         self.clock = pygame.time.Clock()
         
-        # 字體設定
         if os.path.exists(config.FONT_FILE):
             print(f"成功載入字體: {config.FONT_FILE}")
             self.font = pygame.font.Font(config.FONT_FILE, 20)
@@ -39,27 +37,46 @@ class GameEngine:
         self.last_pop_milestone = 5
         self.prosperity = 0
         
-        # 資源庫存
         self.food = 0
         self.wood = 0
         self.gold = 0
-        self.wall_hp = 0  # 牆壁耐久度
+        self.wall_hp = 0
         
-        # 通知系統變數
         self.notification_text = ""
         self.notification_timer = 0
         self.notification_color = (255, 50, 50)
         
-        self.heroes_spawned = 0
+        # 移除 heroes_spawned 計數，因為現在只會有一隻
         self.event_manager = EventManager(self)
         self.is_paused = False
-        self.init_world()
+        
+        # 注意：init_world 稍微延後到選完英雄再做
 
-    def init_world(self):
+    def init_world(self, hero_choice):
+        # 1. 生成普通村民
         for i in range(5):
             self.villagers.append(Villager(self, f"獵人{i}", (255, 100, 100), "Hunter"))
         for i in range(5):
             self.villagers.append(Villager(self, f"農夫{i}", (100, 100, 255), "Farmer"))
+            
+        # 2. 生成玩家選擇的英雄 (領袖)
+        hero = None
+        if hero_choice == 1:
+            hero = SonicHero(self, "領袖-索尼克")
+            self.log_event("領袖 索尼克 (高速) 加入了村莊！")
+        elif hero_choice == 2:
+            hero = TycoonHero(self, "領袖-大亨")
+            self.log_event("領袖 大亨 (金錢) 加入了村莊！")
+        elif hero_choice == 3:
+            hero = HealerHero(self, "領袖-醫者")
+            self.log_event("領袖 醫者 (回復) 加入了村莊！")
+            
+        if hero:
+            hero.pos.x = self.map_width // 2
+            hero.pos.y = self.map_height // 2
+            self.villagers.append(hero)
+
+        # 3. 生成資源
         self.spawn_resources(30)
 
     def spawn_resources(self, count):
@@ -67,22 +84,6 @@ class GameEngine:
             x = random.randint(20, self.map_width - 20)
             y = random.randint(20, self.map_height - 20)
             self.resources.append(Resource(x, y))
-
-    def spawn_hero(self):
-        self.heroes_spawned += 1
-        hero_type = random.choice(["Sonic", "Healer", "Tycoon"])
-        name = f"{hero_type}-{self.heroes_spawned}"
-        
-        hero = None
-        if hero_type == "Sonic": hero = SonicHero(self, name)
-        elif hero_type == "Healer": hero = HealerHero(self, name)
-        elif hero_type == "Tycoon": hero = TycoonHero(self, name)
-        
-        hero.pos.x = random.randint(50, self.map_width-50)
-        hero.pos.y = random.randint(50, self.map_height-50)
-        self.villagers.append(hero)
-        self.log_event(f"傳說英雄 {name} 加入村莊！")
-        config.PROSPERITY_THRESHOLD += 300
 
     def expand_village(self):
         if self.map_width >= config.MAX_MAP_WIDTH: return
@@ -101,13 +102,12 @@ class GameEngine:
     def show_notification(self, text, color=(255, 50, 50)):
         self.notification_text = text
         self.notification_color = color
-        self.notification_timer = 180  # 顯示約 3 秒
+        self.notification_timer = 180
 
     def update(self):
         if self.is_paused: return
         self.frame_count += 1
         
-        # 通知計時器倒數
         if self.notification_timer > 0:
             self.notification_timer -= 1
         
@@ -116,7 +116,7 @@ class GameEngine:
             self.frame_count = 0
             self.log_event("--- 新的一天 ---")
             
-            # --- 夜襲系統 ---
+            # 夜襲系統
             attack_damage = random.randint(15, 40)
             
             if self.wall_hp > 0:
@@ -138,7 +138,6 @@ class GameEngine:
                 else:
                     self.log_event("昨晚運氣好，野獸沒有發現村民")
                     self.show_notification("昨晚平安無事", (100, 255, 100))
-            # ----------------
 
             self.spawn_resources(15)
             
@@ -155,9 +154,9 @@ class GameEngine:
             self.is_paused = True
             return
 
-        if (self.prosperity >= config.PROSPERITY_THRESHOLD and 
-            self.heroes_spawned < config.MAX_HEROES and random.random() < 0.02):
-            self.spawn_hero()
+        # --- [修改] 移除了原本隨機生成英雄的邏輯 ---
+        # 英雄現在只有開場選的那一隻，死了就沒了
+        # -------------------------------------
 
         for v in self.villagers: v.update()
         self.resources = [r for r in self.resources if r.active]
@@ -180,15 +179,12 @@ class GameEngine:
 
     def draw_ui(self):
         ui_x = self.map_width
-        
-        # UI 背景
         pygame.draw.rect(self.screen, config.COLOR_UI, (ui_x, 0, config.UI_WIDTH, self.map_height))
         pygame.draw.line(self.screen, (100,100,100), (ui_x, 0), (ui_x, self.map_height), 2)
         
         icon_y = 25
         text_y = 18
         
-        # 資源顯示
         pygame.draw.circle(self.screen, config.COLOR_FOOD, (ui_x + 20, icon_y), 8)
         self.screen.blit(self.font.render(f"{int(self.food)}", True, config.COLOR_TEXT), (ui_x + 35, text_y))
         pygame.draw.circle(self.screen, config.COLOR_WOOD, (ui_x + 90, icon_y), 8)
@@ -196,7 +192,6 @@ class GameEngine:
         pygame.draw.circle(self.screen, config.COLOR_GOLD, (ui_x + 160, icon_y), 8)
         self.screen.blit(self.font.render(f"{int(self.gold)}", True, config.COLOR_TEXT), (ui_x + 175, text_y))
         
-        # 牆壁血量
         wall_y = 55
         wall_color = (100, 200, 255) if self.wall_hp > 0 else (255, 100, 100)
         wall_txt = f"Wall HP: {self.wall_hp}"
@@ -204,9 +199,7 @@ class GameEngine:
         
         pygame.draw.line(self.screen, (80,80,80), (ui_x + 10, 80), (ui_x + config.UI_WIDTH - 10, 80), 1)
 
-        # 遊戲進度資訊
         base_y = 95 
-        # 顯示目標天數
         self.screen.blit(self.title_font.render(f"Day: {self.day} / 15", True, config.COLOR_TEXT), (ui_x+10, base_y))
         
         pop = sum(1 for v in self.villagers if v.is_alive)
@@ -215,11 +208,11 @@ class GameEngine:
         p_str = f"Prosperity: {int(self.prosperity)}"
         self.screen.blit(self.font.render(p_str, True, (200, 100, 255)), (ui_x+10, base_y + 70))
         
-        bar_w = 200 * min(1.0, self.prosperity/config.PROSPERITY_THRESHOLD)
+        # 繁榮度條 (只剩下觀賞和評分用途)
+        bar_w = 200 * min(1.0, self.prosperity/2000) # 上限設高一點讓它不容易滿
         pygame.draw.rect(self.screen, (50,50,50), (ui_x+10, base_y + 90, 200, 10))
         pygame.draw.rect(self.screen, (138,43,226), (ui_x+10, base_y + 90, bar_w, 10))
 
-        # Logs
         log_y = base_y + 120
         pygame.draw.line(self.screen, (100,100,100), (ui_x, log_y - 10), (ui_x+config.UI_WIDTH, log_y - 10), 1)
         for l in self.logs:
@@ -237,7 +230,6 @@ class GameEngine:
             self.event_manager.draw(self.screen)
         else: 
             self.draw_ui()
-            # 繪製紅色警報通知
             if self.notification_timer > 0:
                 cx, cy = self.map_width // 2, self.map_height // 2
                 text_surf = self.large_font.render(self.notification_text, True, self.notification_color)
@@ -257,27 +249,24 @@ class GameEngine:
         
         pygame.display.flip()
 
-    # --- 開始畫面 ---
     def start_screen(self):
+        # 這裡只負責顯示規則，按任意鍵後會進入選英雄畫面
         waiting = True
         while waiting:
             self.screen.fill((20, 20, 30))
-            
-            # 標題
             title = self.large_font.render("Village Sim: 15 Days Challenge", True, (255, 215, 0))
             self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 100))
 
-            # 說明文字
             instructions = [
                 "【生存挑戰】目標：活到第 15 天",
                 "-----------------------------",
-                "1. 前三天充滿未知：只會發生隨機的幸運或厄運事件。",
-                "2. 第四天起：商人會出現，開放資源交易與修牆。",
-                "3. 資源管理：木頭可用於修牆，黃金可用於購買糧食。",
-                "4. 小心夜襲：沒有圍牆的村莊，村民隨時會死亡。",
+                "1. 選擇你的領袖英雄，這將決定你的生存策略。",
+                "2. 前三天充滿未知風險，第四天起開放交易。",
+                "3. 資源管理：木頭修牆，黃金買糧。",
+                "4. 繁榮度：決定最終過關時的評價 (S/A/B)。",
                 "5. 只要看到 [Day 15] 出現，即視為勝利！",
                 "-----------------------------",
-                "按 [任意鍵] 開始挑戰"
+                "按 [任意鍵] 進入英雄選擇"
             ]
             
             y = 200
@@ -296,7 +285,52 @@ class GameEngine:
                     waiting = False
         return True
 
-    # --- 失敗畫面 ---
+    # --- [新增] 英雄選擇畫面 ---
+    def hero_selection_screen(self):
+        selected_hero = None
+        while selected_hero is None:
+            self.screen.fill((10, 10, 20))
+            
+            # 標題
+            title = self.title_font.render("選擇你的開局領袖", True, (255, 255, 255))
+            self.screen.blit(title, (self.map_width//2 - title.get_width()//2 + 100, 100))
+            
+            # 選項說明
+            options = [
+                {"key": "[1]", "name": "Sonic (速度型)", "desc": "移動超快，前期搶奪資源的神。"},
+                {"key": "[2]", "name": "Tycoon (經濟型)", "desc": "被動產生黃金，不怕沒錢買糧食。"},
+                {"key": "[3]", "name": "Healer (生存型)", "desc": "會治療受傷村民，減少夜襲死亡率。"}
+            ]
+            
+            y = 200
+            for opt in options:
+                # 畫選項文字
+                key_text = self.title_font.render(opt["key"], True, (255, 215, 0))
+                name_text = self.title_font.render(opt["name"], True, (100, 255, 255))
+                desc_text = self.font.render(opt["desc"], True, (200, 200, 200))
+                
+                cx = self.map_width // 2 + 100
+                self.screen.blit(key_text, (cx - 200, y))
+                self.screen.blit(name_text, (cx - 140, y))
+                self.screen.blit(desc_text, (cx - 140, y + 35))
+                y += 100
+            
+            hint = self.font.render("按鍵盤 [1] [2] [3] 選擇", True, (150, 150, 150))
+            self.screen.blit(hint, (self.map_width//2 - hint.get_width()//2 + 100, 550))
+
+            pygame.display.flip()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return None
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_1: selected_hero = 1
+                    if event.key == pygame.K_2: selected_hero = 2
+                    if event.key == pygame.K_3: selected_hero = 3
+        
+        return selected_hero
+
     def game_over_screen(self):
         while True:
             overlay = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
@@ -324,27 +358,50 @@ class GameEngine:
                         pygame.quit()
                         return
 
-    # --- 勝利畫面 ---
     def game_won_screen(self):
         while True:
-            # 金色勝利背景
             overlay = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
-            overlay.set_alpha(200)
+            overlay.set_alpha(220)
             overlay.fill((0, 0, 0))
             self.screen.blit(overlay, (0, 0))
             
             title = self.large_font.render("VICTORY!", True, (255, 215, 0))
-            self.screen.blit(title, (self.screen.get_width()//2 - title.get_width()//2, 200))
+            self.screen.blit(title, (self.screen.get_width()//2 - title.get_width()//2, 150))
             
             sub = self.title_font.render("你成功生存了 15 天！", True, (255, 255, 255))
-            self.screen.blit(sub, (self.screen.get_width()//2 - sub.get_width()//2, 260))
+            self.screen.blit(sub, (self.screen.get_width()//2 - sub.get_width()//2, 210))
             
+            # 評分系統
+            final_score = int(self.prosperity)
+            rank = "C"
+            rank_color = (200, 200, 200)
+            comment = "勉強倖存的難民營"
+            
+            if final_score >= 1500:
+                rank = "S"
+                rank_color = (255, 215, 0)
+                comment = "傳說中的黃金帝國！"
+            elif final_score >= 1000:
+                rank = "A"
+                rank_color = (255, 100, 255)
+                comment = "繁榮昌盛的城邦"
+            elif final_score >= 500:
+                rank = "B"
+                rank_color = (100, 255, 100)
+                comment = "自給自足的村莊"
+            
+            rank_text = self.large_font.render(f"Rank: {rank}", True, rank_color)
+            self.screen.blit(rank_text, (self.screen.get_width()//2 - rank_text.get_width()//2, 280))
+            
+            comment_text = self.font.render(comment, True, rank_color)
+            self.screen.blit(comment_text, (self.screen.get_width()//2 - comment_text.get_width()//2, 330))
+
             pop = len([v for v in self.villagers if v.is_alive])
-            score_text = self.font.render(f"最終繁榮度: {int(self.prosperity)} | 倖存人口: {pop}", True, (200, 200, 255))
-            self.screen.blit(score_text, (self.screen.get_width()//2 - score_text.get_width()//2, 320))
+            score_text = self.font.render(f"最終繁榮度: {final_score} | 倖存人口: {pop}", True, (200, 200, 255))
+            self.screen.blit(score_text, (self.screen.get_width()//2 - score_text.get_width()//2, 380))
             
             hint = self.font.render("按 [ESC] 離開遊戲", True, (200, 200, 200))
-            self.screen.blit(hint, (self.screen.get_width()//2 - hint.get_width()//2, 400))
+            self.screen.blit(hint, (self.screen.get_width()//2 - hint.get_width()//2, 450))
             
             pygame.display.flip()
             
@@ -358,9 +415,17 @@ class GameEngine:
                         return
 
     def run(self):
-        # 1. 顯示開始畫面
+        # 1. 說明畫面
         if not self.start_screen():
             return
+            
+        # 2. 英雄選擇畫面 (新增)
+        hero_choice = self.hero_selection_screen()
+        if hero_choice is None: # 如果玩家按 X 關閉視窗
+            return
+            
+        # 3. 初始化世界 (現在才生成角色)
+        self.init_world(hero_choice)
 
         running = True
         while running:
@@ -368,7 +433,6 @@ class GameEngine:
             self.update()
             self.draw()
             
-            # 2. 檢查失敗條件 (全滅)
             living_villagers = [v for v in self.villagers if v.is_alive]
             if len(living_villagers) == 0:
                 self.log_event("村莊已滅亡...")
@@ -377,7 +441,6 @@ class GameEngine:
                 self.game_over_screen()
                 running = False
             
-            # 3. 檢查勝利條件 (第15天)
             if self.day >= 15:
                 self.log_event("目標達成！遊戲勝利！")
                 self.draw()

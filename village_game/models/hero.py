@@ -1,78 +1,79 @@
-# models/hero.py
 import pygame
 import random
+import config
 from models.villager import Villager
-from models.resource import Resource
 
-# --- 基礎菁英類別 ---
-class HeroVillager(Villager):
-    def __init__(self, game_engine, name, color, job_title):
-        super().__init__(game_engine, name, color, job_title)
-        self.max_health = 150
-        self.health = 150
-        self.hunger_rate = 0.05 
-
-    def draw(self, surface):
-        if not self.is_alive:
-            super().draw(surface)
-            return
-        x, y = int(self.pos.x), int(self.pos.y)
+# 1. 速度型 - 艾里奧
+class SonicHero(Villager):
+    def __init__(self, engine, name):
+        super().__init__(engine, name, (50, 255, 50), "Hero") # 亮綠色
+        self.speed = 2.5  # 超級快
         
-        # 光環特效
-        if self.game.frame_count % 30 < 15:
-            aura = (min(255, self.color[0]+50), min(255, self.color[1]+50), min(255, self.color[2]+50))
-            pygame.draw.circle(surface, aura, (x, y), 12, 1)
-
-        pygame.draw.circle(surface, self.color, (x, y), 9)
-        # 顯示職業首字
-        font_surf = self.game.font.render(self.job[0], True, (255,255,255))
-        surface.blit(font_surf, (x-4, y-6))
-        # 菁英血條
-        pygame.draw.rect(surface, (0, 0, 0), (x-12, y-15, 24, 4))
-        pygame.draw.rect(surface, self.color, (x-12, y-15, 24 * (self.health/self.max_health), 4))
-
-# --- 1. 迅捷斥侯 (Sonic) ---
-class SonicHero(HeroVillager):
-    def __init__(self, game_engine, name):
-        super().__init__(game_engine, name, (0, 191, 255), "Sonic") 
-        self.speed = 3.5
-
-# --- 2. 聖職者 (Healer) ---
-class HealerHero(HeroVillager):
-    def __init__(self, game_engine, name):
-        super().__init__(game_engine, name, (255, 105, 180), "Healer")
-        self.speed = 0.8
-        self.heal_cooldown = 0
-
     def update(self):
         super().update()
-        if not self.is_alive: return
-        self.heal_cooldown += 1
-        if self.heal_cooldown >= 60:
-            self.heal_nearby()
-            self.heal_cooldown = 0
+        # 特效：走路會有殘影 (簡單用畫圓表示)
+        if self.engine.frame_count % 10 == 0:
+            pygame.draw.circle(self.engine.screen, (200, 255, 200), (int(self.pos.x), int(self.pos.y)), 6, 1)
 
-    def heal_nearby(self):
-        for v in self.game.villagers:
-            if v.is_alive and v != self and v.health < 90:
-                if self.pos.distance_to(v.pos) < 100:
-                    v.health += 10
-                    pygame.draw.line(self.game.screen, (0, 255, 0), 
-                                     (self.pos.x, self.pos.y), (v.pos.x, v.pos.y), 1)
-
-# --- 3. 大富豪 (Tycoon) ---
-class TycoonHero(HeroVillager):
-    def __init__(self, game_engine, name):
-        super().__init__(game_engine, name, (255, 215, 0), "Tycoon")
-        self.speed = 1.2
-        self.money_timer = 0
-
+# 2. 治療型 - 芙蕾雅
+class HealerHero(Villager):
+    def __init__(self, engine, name):
+        super().__init__(engine, name, (255, 100, 255), "Hero") # 粉紫色
+        self.speed = 1.0
+        
     def update(self):
         super().update()
-        if not self.is_alive: return
-        self.money_timer += 1
-        if self.money_timer >= 300: # 5秒一次
-            # 隨機生成 1~2 個資源
-            for _ in range(random.randint(1,2)):
-                 self.game.resources.append(Resource(self.pos.x + random.randint(-20,20), self.pos.y + random.randint(-20,20)))
-            self.money_timer = 0 
+        # 技能：每 2 秒治療一個受傷的村民
+        if self.engine.frame_count % 120 == 0:
+            for v in self.engine.villagers:
+                if v.is_alive and v != self:
+                    # 這裡假設以後有血量系統，目前先降低飢餓度作為治療代替
+                    # 或者如果有受傷狀態可以移除
+                    if v.hunger > 50:
+                        v.hunger -= 20
+                        print(f"❤️ {self.name} 治療了 {v.name}")
+                        break
+
+# 3. 經濟型 - 摩根
+class TycoonHero(Villager):
+    def __init__(self, engine, name):
+        super().__init__(engine, name, (255, 215, 0), "Hero") # 金色
+        self.speed = 0.9
+        
+    def update(self):
+        super().update()
+        # 技能：每 3 秒自動產生 1 黃金
+        if self.engine.frame_count % 180 == 0:
+            self.engine.gold += 1
+            # print(f"💰 {self.name} 的投資獲得了回報")
+
+# --- [新增] 4. 防禦型 - 泰坦 ---
+class BuilderHero(Villager):
+    def __init__(self, engine, name):
+        super().__init__(engine, name, (100, 100, 100), "Hero") # 鐵灰色
+        self.speed = 0.8 # 比較笨重
+        
+    def update(self):
+        super().update()
+        # 技能：每秒自動修牆 +2 HP (免費)
+        if self.engine.frame_count % 60 == 0:
+            if self.engine.wall_hp < 500: # 設一個修復上限，避免無限刷
+                self.engine.wall_hp += 2
+                # 視覺特效：頭上冒出修復符號
+                # (這裡簡單用 print，實際遊戲中 UI 會更新)
+                # print(f"🛡️ {self.name} 加固了城牆")
+
+# --- [新增] 5. 糧食型 - 瑟蕾絲 ---
+class OracleHero(Villager):
+    def __init__(self, engine, name):
+        super().__init__(engine, name, (255, 140, 0), "Hero") # 橘色
+        self.speed = 1.0
+        
+    def update(self):
+        super().update()
+        # 技能：每 5 秒發動一次「豐收祝福」，全體飢餓度 -5
+        if self.engine.frame_count % 300 == 0:
+            for v in self.engine.villagers:
+                if v.is_alive:
+                    v.hunger = max(0, v.hunger - 5)
+            self.engine.log_event(f"🌾 {self.name} 施展了豐收祝福！全體抗餓")

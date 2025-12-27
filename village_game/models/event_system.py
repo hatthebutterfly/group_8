@@ -13,29 +13,92 @@ class EventManager:
             self.cooldown -= 1
             return False
 
-        # 0.8% 機率觸發
+        # 機率觸發 (0.8% 機率)
         if random.random() < 0.008:
-            self.trigger_mixed_event()
+            # 根據天數決定事件池
+            if self.engine.day <= 3:
+                # 前三天：只有風險抉擇事件
+                self.trigger_risk_event()
+            else:
+                # 第四天後：風險事件 與 商人事件 混合出現
+                if random.random() < 0.6: # 60% 風險抉擇
+                    self.trigger_risk_event()
+                else:
+                    self.trigger_trade_event()
+            
             self.cooldown = 300 
             return True 
         return False
 
-    def trigger_mixed_event(self):
-        # 1. 幸運事件
-        lucky_events = [
-            {"title": "幸運的發現", "desc": "撿到一袋糧食。", "options": [{"text": "撿起來 (+20 食物)", "cost": {}, "effect": "get_food"}]},
-            {"title": "廢棄的營地", "desc": "發現可用的木材。", "options": [{"text": "回收木材 (+5 木頭)", "cost": {}, "effect": "get_wood"}]},
-            {"title": "迷路的貴族", "desc": "指引貴族方向。", "options": [{"text": "接受謝禮 (+5 黃金)", "cost": {}, "effect": "get_gold"}]}
+    def trigger_risk_event(self):
+        """
+        風險管理事件：
+        選項 1 (保守)：70% 獲得小獎勵，30% 獲得小處罰
+        選項 2 (冒險)：50% 獲得大獎勵，50% 獲得大處罰
+        """
+        scenarios = [
+            {
+                "title": "未知的果樹",
+                "desc": "發現一種沒看過的果實，要怎麼採集？",
+                "options": [
+                    {
+                        "text": "保守：只撿地上的 (70% +15食物 / 30% -5食物)", 
+                        "cost": {}, 
+                        "effect": "risk_food_low"
+                    },
+                    {
+                        "text": "冒險：爬上去搖樹 (50% +50食物 / 50% 受傷 -20食物)", 
+                        "cost": {}, 
+                        "effect": "risk_food_high"
+                    }
+                ]
+            },
+            {
+                "title": "廢棄的礦坑",
+                "desc": "這裡似乎還有剩下的資源...",
+                "options": [
+                    {
+                        "text": "保守：在洞口撿拾 (70% +5木頭 / 30% 無收穫)", 
+                        "cost": {}, 
+                        "effect": "risk_wood_low"
+                    },
+                    {
+                        "text": "冒險：深入內部 (50% +20木頭 / 50% 坍塌 -15HP)", 
+                        "cost": {}, 
+                        "effect": "risk_wood_high"
+                    }
+                ]
+            },
+            {
+                "title": "神秘的旅人",
+                "desc": "遇到一位看起來很可疑的旅人。",
+                "options": [
+                    {
+                        "text": "保守：簡單問候 (70% +5黃金 / 30% 被偷 -2黃金)", 
+                        "cost": {}, 
+                        "effect": "risk_gold_low"
+                    },
+                    {
+                        "text": "冒險：邀請共進晚餐 (50% +20黃金 / 50% 被洗劫 -10黃金)", 
+                        "cost": {}, 
+                        "effect": "risk_gold_high"
+                    }
+                ]
+            }
         ]
+        self.active_event = random.choice(scenarios)
 
-        # 2. 交易與建設 (Day 4 後才會出現)
-        trade_events = [
+    def trigger_trade_event(self):
+        """
+        商人與建設事件 (Day 4 後才會出現)
+        """
+        events = [
             {
                 "title": "流浪商人", "desc": "商人兜售物資。",
                 "options": [
                     {"text": "買糧 (5 黃金 -> 30 食物)", "cost": {"gold": 5}, "effect": "buy_food"},
                     {"text": "買木 (5 黃金 -> 5 木頭)", "cost": {"gold": 5}, "effect": "buy_wood"},
-                    {"text": "趕走他", "cost": {}, "effect": "none"}
+                    {"text": "離開", "cost": {}, "effect": "none"}
                 ]
             },
             {
@@ -47,51 +110,7 @@ class EventManager:
                 ]
             }
         ]
-        
-        # 3. 厄運事件
-        bad_events = [
-            {
-                "title": "鼠患爆發！", "desc": "老鼠正在啃食倉庫的糧食！",
-                "options": [
-                    {"text": "用木頭堵洞 (花費 3 木頭)", "cost": {"wood": 3}, "effect": "fix_rat_hole"},
-                    {"text": "放任不管 (損失 30 食物)", "cost": {}, "effect": "lose_food_bad"}
-                ]
-            },
-            {
-                "title": "強盜勒索", "desc": "一群強盜包圍了村莊！",
-                "options": [
-                    {"text": "破財消災 (損失 5 黃金)", "cost": {"gold": 5}, "effect": "pay_bandit"},
-                    {"text": "誓死抵抗 (牆壁受損 -30 HP)", "cost": {}, "effect": "fight_bandit"}
-                ]
-            },
-             {
-                "title": "流行病", "desc": "村民感到身體不適...",
-                "options": [
-                    {"text": "分發藥草 (花費 20 食物)", "cost": {"food": 20}, "effect": "cure_sickness"},
-                    {"text": "無能為力 (繁榮度 -50)", "cost": {}, "effect": "epidemic_hit"}
-                ]
-            }
-        ]
-
-        # --- [關鍵修改] 根據天數決定事件池 ---
-        
-        if self.engine.day <= 3:
-            # 前三天：只有幸運 (50%) 和 厄運 (50%)
-            # 沒有商人，純粹看運氣和初期資源分配
-            if random.random() < 0.5:
-                self.active_event = random.choice(lucky_events)
-            else:
-                self.active_event = random.choice(bad_events)
-        else:
-            # 第四天後：混合模式
-            # 30% 幸運, 40% 交易, 30% 厄運
-            rand_val = random.random()
-            if rand_val < 0.3:
-                self.active_event = random.choice(lucky_events)
-            elif rand_val < 0.7:
-                self.active_event = random.choice(trade_events)
-            else:
-                self.active_event = random.choice(bad_events)
+        self.active_event = random.choice(events)
 
     def handle_input(self, key):
         if not self.active_event: return False
@@ -104,6 +123,7 @@ class EventManager:
         if choice is not None and choice < len(self.active_event["options"]):
             opt = self.active_event["options"][choice]
             
+            # 檢查資源是否足夠 (針對商人事件)
             can_afford = True
             if "gold" in opt["cost"] and self.engine.gold < opt["cost"]["gold"]: can_afford = False
             if "wood" in opt["cost"] and self.engine.wood < opt["cost"]["wood"]: can_afford = False
@@ -112,6 +132,7 @@ class EventManager:
             if not can_afford:
                 return False 
             
+            # 扣除資源
             if "gold" in opt["cost"]: self.engine.gold -= opt["cost"]["gold"]
             if "wood" in opt["cost"]: self.engine.wood -= opt["cost"]["wood"]
             if "food" in opt["cost"]: self.engine.food -= opt["cost"]["food"]
@@ -122,30 +143,63 @@ class EventManager:
         return False
 
     def apply_effect(self, effect_name):
-        if effect_name == "get_food": self.engine.food += 20; self.engine.log_event("幸運：獲得 20 食物")
-        elif effect_name == "get_wood": self.engine.wood += 5; self.engine.log_event("幸運：獲得 5 木頭")
-        elif effect_name == "get_gold": self.engine.gold += 5; self.engine.log_event("幸運：獲得 5 黃金")
+        rand = random.random() # 擲骰子 (0.0 ~ 1.0)
+
+        # --- 風險抉擇：食物 ---
+        if effect_name == "risk_food_low":
+            if rand < 0.7: # 70% 成功
+                self.engine.food += 15
+                self.engine.log_event("保守：幸運撿到了 15 食物")
+            else:          # 30% 失敗
+                self.engine.food = max(0, self.engine.food - 5)
+                self.engine.log_event("保守：果實有毒...損失 5 食物")
+
+        elif effect_name == "risk_food_high":
+            if rand < 0.5: # 50% 成功
+                self.engine.food += 50
+                self.engine.log_event("大冒險：大豐收！獲得 50 食物")
+            else:          # 50% 失敗
+                self.engine.food = max(0, self.engine.food - 20)
+                self.engine.log_event("大冒險：摔下來受傷了...損失 20 食物")
+
+        # --- 風險抉擇：木頭 ---
+        elif effect_name == "risk_wood_low":
+            if rand < 0.7:
+                self.engine.wood += 5
+                self.engine.log_event("保守：收集到 5 木頭")
+            else:
+                self.engine.log_event("保守：什麼都沒找到")
+
+        elif effect_name == "risk_wood_high":
+            if rand < 0.5:
+                self.engine.wood += 20
+                self.engine.log_event("大冒險：發現隱藏倉庫！+20 木頭")
+            else:
+                self.engine.wall_hp = max(0, self.engine.wall_hp - 15)
+                self.engine.log_event("大冒險：引發坍塌！牆壁受損 -15")
+
+        # --- 風險抉擇：黃金 ---
+        elif effect_name == "risk_gold_low":
+            if rand < 0.7:
+                self.engine.gold += 5
+                self.engine.log_event("保守：旅人送了 5 黃金")
+            else:
+                self.engine.gold = max(0, self.engine.gold - 2)
+                self.engine.log_event("保守：錢包被偷了...損失 2 黃金")
+
+        elif effect_name == "risk_gold_high":
+            if rand < 0.5:
+                self.engine.gold += 20
+                self.engine.log_event("大冒險：旅人是富豪！回贈 20 黃金")
+            else:
+                self.engine.gold = max(0, self.engine.gold - 10)
+                self.engine.log_event("大冒險：是強盜！被搶走 10 黃金")
+
+        # --- 商人與建設 (100% 成功) ---
         elif effect_name == "buy_food": self.engine.food += 30; self.engine.log_event("交易：獲得 30 食物")
         elif effect_name == "buy_wood": self.engine.wood += 5; self.engine.log_event("交易：獲得 5 木頭")
         elif effect_name == "build_wall_strong": self.engine.wall_hp += 50; self.engine.log_event("城牆大修完成")
         elif effect_name == "build_wall_weak": self.engine.wall_hp += 15; self.engine.log_event("城牆簡易修補")
-        
-        elif effect_name == "fix_rat_hole":
-            self.engine.log_event("修補了鼠洞，保住了糧食")
-        elif effect_name == "lose_food_bad":
-            loss = min(self.engine.food, 30)
-            self.engine.food -= loss
-            self.engine.log_event(f"老鼠吃掉了 {loss} 食物！")
-        elif effect_name == "pay_bandit":
-            self.engine.log_event("強盜拿了錢離開了")
-        elif effect_name == "fight_bandit":
-            self.engine.wall_hp = max(0, self.engine.wall_hp - 30)
-            self.engine.log_event("抵抗成功，但牆壁受損嚴重！")
-        elif effect_name == "cure_sickness":
-            self.engine.log_event("村民恢復了健康")
-        elif effect_name == "epidemic_hit":
-            self.engine.prosperity = max(0, self.engine.prosperity - 50)
-            self.engine.log_event("疫情蔓延，繁榮度大跌...")
         
         elif effect_name == "none": self.engine.log_event("沒有發生什麼事")
 
@@ -158,36 +212,42 @@ class EventManager:
         screen.blit(overlay, (0,0))
         
         cx, cy = screen.get_width()//2, screen.get_height()//2
-        w, h = 600, 350
+        w, h = 640, 360 # 稍微加寬一點，因為選項文字變長了
         
-        border_color = (200, 200, 200)
-        pygame.draw.rect(screen, (40, 40, 50), (cx-w//2, cy-h//2, w, h))
-        pygame.draw.rect(screen, border_color, (cx-w//2, cy-h//2, w, h), 2)
-        
-        title_color = (255, 215, 0)
-        if "爆發" in self.active_event["title"] or "強盜" in self.active_event["title"] or "流行病" in self.active_event["title"]:
-            title_color = (255, 50, 50)
+        # 根據事件類型畫框框顏色
+        # 風險事件用紫色，商人用藍色
+        if "risk" in self.active_event["options"][0]["effect"]:
+            border_color = (200, 100, 255) # 紫色
+            title_color = (255, 100, 255)
+        else:
+            border_color = (100, 200, 255) # 藍色
+            title_color = (255, 215, 0)    # 金色
 
+        pygame.draw.rect(screen, (30, 30, 40), (cx-w//2, cy-h//2, w, h))
+        pygame.draw.rect(screen, border_color, (cx-w//2, cy-h//2, w, h), 3)
+        
         title = self.engine.title_font.render(self.active_event["title"], True, title_color)
-        screen.blit(title, (cx - title.get_width()//2, cy - h//2 + 20))
+        screen.blit(title, (cx - title.get_width()//2, cy - h//2 + 25))
         
-        desc = self.engine.font.render(self.active_event["desc"], True, (255, 255, 255))
-        screen.blit(desc, (cx - desc.get_width()//2, cy - h//2 + 60))
+        desc = self.engine.font.render(self.active_event["desc"], True, (220, 220, 220))
+        screen.blit(desc, (cx - desc.get_width()//2, cy - h//2 + 70))
         
-        y = cy - h//2 + 120
+        # 畫選項
+        y = cy - h//2 + 130
         for i, opt in enumerate(self.active_event["options"]):
             can_afford = True
             if "gold" in opt["cost"] and self.engine.gold < opt["cost"]["gold"]: can_afford = False
             if "wood" in opt["cost"] and self.engine.wood < opt["cost"]["wood"]: can_afford = False
             if "food" in opt["cost"] and self.engine.food < opt["cost"]["food"]: can_afford = False
             
-            if len(opt["cost"]) == 0: color = (100, 255, 255)
-            elif can_afford: color = (100, 255, 100)
-            else: color = (100, 100, 100)
+            if len(opt["cost"]) == 0: color = (150, 255, 150) # 綠色 (免費/風險選項)
+            elif can_afford: color = (100, 255, 255) # 青色 (可買)
+            else: color = (100, 100, 100) # 灰色 (不可買)
             
-            text = self.engine.font.render(f"{i+1}. {opt['text']}", True, color)
-            screen.blit(text, (cx - w//2 + 30, y))
-            y += 40
+            # 選項文字可能比較長，這裡簡單處理
+            text_surf = self.engine.font.render(f"{i+1}. {opt['text']}", True, color)
+            screen.blit(text_surf, (cx - w//2 + 40, y))
+            y += 50
             
-        hint = self.engine.font.render("按鍵盤 [1] [2] [3] 選擇", True, (150, 150, 150))
-        screen.blit(hint, (cx - hint.get_width()//2, cy + h//2 - 30))
+        hint = self.engine.font.render("按鍵盤 [1] [2] 做選擇", True, (150, 150, 150))
+        screen.blit(hint, (cx - hint.get_width()//2, cy + h//2 - 40))

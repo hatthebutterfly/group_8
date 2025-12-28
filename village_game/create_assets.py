@@ -45,7 +45,7 @@ def create_surface(color, shape_type):
         pygame.draw.polygon(s, (255, 255, 200), [(16, 6), (24, 16), (16, 26), (8, 16)])
         
     elif shape_type == "wall":
-        # 畫磚牆
+        # 畫磚牆    
         s.fill((100, 100, 100))
         pygame.draw.line(s, (50, 50, 50), (0, 10), (32, 10), 2)
         pygame.draw.line(s, (50, 50, 50), (0, 20), (32, 20), 2)

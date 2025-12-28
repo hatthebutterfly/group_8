@@ -59,7 +59,7 @@ class Villager:
                 self.pos += separation_force.normalize() * 1.5
 
     def update(self):
-        if not self.is_alive: return
+        if not self.is_alive: return    
 
         # 1. 英雄由玩家控制 (略過 AI)
         if self.role == "Hero":

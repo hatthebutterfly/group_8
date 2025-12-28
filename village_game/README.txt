@@ -730,7 +730,6 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 - **Pygame** - 優秀的遊戲開發框架
 - **Python** - 簡潔優雅的程式語言
-- **Claude (Anthropic)** - 協助開發評分系統
 
 ---
 

@@ -146,7 +146,7 @@ class Villager:
             self.change_dir_timer = 0
 
     def draw(self, screen):
-        if not self.is_alive: return
+        if not self.is_alive: return    
         
         img = None
         if self.role == "Hero": img = self.engine.assets.get('hero')

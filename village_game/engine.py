@@ -1363,7 +1363,7 @@ class GameEngine:
                         running = False
                     else:
                         return
-                
+                    
                 self.clock.tick(config.FPS)
             
             if not should_restart: break  

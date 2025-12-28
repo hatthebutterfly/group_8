@@ -602,7 +602,7 @@ class GameEngine:
                 self.screen.blit(name_txt, (rect_x + 100, y + 10))
                 desc_txt = self.font.render(opt["desc"], True, (200, 200, 200))
                 self.screen.blit(desc_txt, (rect_x + 100, y + 50))
-                y += 100
+                y += 100    
             hint = self.font.render("按鍵盤 [1] ~ [5] 選擇", True, (150, 150, 150))
             self.screen.blit(hint, (cx - hint.get_width()//2, 620))
             pygame.display.flip()

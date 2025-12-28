@@ -12,7 +12,6 @@ pygame.init()
 
 def create_surface(color, shape_type):
     s = pygame.Surface((IMG_SIZE, IMG_SIZE), pygame.SRCALPHA)
-    
     # 邊框
     if shape_type != "wall":
         pygame.draw.circle(s, (0,0,0, 50), (IMG_SIZE//2, IMG_SIZE-2), 10) # 陰影

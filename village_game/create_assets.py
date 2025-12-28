@@ -34,7 +34,7 @@ def create_surface(color, shape_type):
         pygame.draw.rect(s, (0, 150, 0), (16, 6, 6, 6)) # 葉子
         
     elif shape_type == "wood":
-        # 畫木頭堆
+        # 畫木頭堆    
         pygame.draw.rect(s, (100, 60, 20), (4, 10, 24, 6))
         pygame.draw.rect(s, (120, 80, 30), (6, 18, 20, 6))
         pygame.draw.circle(s, (140, 100, 50), (6, 13), 3) # 年輪

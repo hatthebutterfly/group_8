@@ -668,7 +668,7 @@ class GameEngine:
             self.init_world(hero)
             
             running = True
-            should_restart = False
+            should_restart = False    
             
             while running:
                 running = self.handle_input()

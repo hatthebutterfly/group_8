@@ -7,6 +7,7 @@ from models.villager import Villager
 from models.hero import SonicHero, HealerHero, TycoonHero, BuilderHero, OracleHero
 from models.event_system import EventManager
 from achievement_system import AchievementManager
+from shop_system import Shop
 
 # --- 浮動文字特效類別 ---    
 class FloatingText:
@@ -104,6 +105,15 @@ class GameEngine:
         # 成就系統（只在第一次初始化）
         if not hasattr(self, 'achievement_manager'):
             self.achievement_manager = AchievementManager(self)
+        
+        # 商店系統（只在第一次初始化）
+        if not hasattr(self, 'shop'):
+            self.shop = Shop(self)
+        
+        # 鑽石貨幣（跨遊戲保存）
+        if not hasattr(self, 'diamonds'):
+            self.diamonds = 0  # 初始鑽石
+            self.load_diamonds()  # 讀取保存的鑽石
         
         self.difficulty = "Normal"
         self.spawn_interval = 60 
@@ -312,6 +322,13 @@ class GameEngine:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return False
+                
+                # Tab 鍵打開商店（非結算時）
+                if event.key == pygame.K_TAB and not self.showing_summary:
+                    self.is_paused = True
+                    if not self.shop.show_shop_screen(self.screen, self.font, self.title_font):
+                        return False
+                    self.is_paused = False
 
             if self.showing_summary:
                 if event.type == pygame.KEYDOWN:
@@ -506,7 +523,18 @@ class GameEngine:
             log_y += 20
 
     def draw(self):
-        self.screen.fill(config.COLOR_MAP)
+        # 根據購買的地圖主題改變顏色
+        theme = self.shop_items_owned.get('map_theme', 'default')
+        theme_colors = {
+            'default': config.COLOR_MAP,
+            'desert': (255, 215, 100),
+            'snow': (240, 248, 255),
+            'forest': (34, 100, 34),
+            'lava': (200, 50, 50)
+        }
+        map_color = theme_colors.get(theme, config.COLOR_MAP)
+        
+        self.screen.fill(map_color)
         pygame.draw.rect(self.screen, (20, 60, 20), (0,0,self.map_width, self.map_height), 10)
         
         self.draw_campfire()
@@ -603,7 +631,7 @@ class GameEngine:
             cx = (self.map_width + config.UI_WIDTH) // 2
             title = self.large_font.render("Village Sim: 15 Days Challenge", True, (255, 215, 0))
             self.screen.blit(title, (cx - title.get_width()//2, 100))
-            instructions = ["【生存挑戰】目標：活到第 15 天", "-----------------------------", "1. 資源管理：綠色=糧食，褐色=木材，金色=貨幣。", "2. 英雄操控：WASD/方向鍵 移動，靠近資源自動撿取。", "3. 夜晚威脅：野獸會攻擊牆壁，無牆壁則咬死村民。", "4. 每日結算：檢視傷亡與消耗資源。", "-----------------------------", "按 [空白鍵] 開始遊戲  |  按 [A] 查看成就"]
+            instructions = ["【生存挑戰】目標：活到第 15 天", "-----------------------------", "1. 資源管理：綠色=糧食，褐色=木材，金色=貨幣。", "2. 英雄操控：WASD/方向鍵 移動，靠近資源自動撿取。", "3. 夜晚威脅：野獸會攻擊牆壁，無牆壁則咬死村民。", "4. 每日結算：檢視傷亡與消耗資源。", "-----------------------------", "按 [空白鍵] 開始遊戲  |  按 [A] 成就  |  按 [S] 商店"]
             y = 200
             for line in instructions:
                 text = self.font.render(line, True, (200, 200, 200))
@@ -615,6 +643,10 @@ class GameEngine:
             ach_text = self.font.render(f"🏆 成就解鎖: {unlocked}/{total} ({rate:.1f}%)", True, (255, 215, 0))
             self.screen.blit(ach_text, (cx - ach_text.get_width()//2, y + 20))
             
+            # 鑽石餘額顯示
+            diamond_text = self.font.render(f"💎 鑽石: {self.diamonds}", True, (100, 200, 255))
+            self.screen.blit(diamond_text, (cx - diamond_text.get_width()//2, y + 50))
+            
             pygame.display.flip()    
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return False
@@ -623,6 +655,10 @@ class GameEngine:
                     elif event.key == pygame.K_a:
                         # 打開成就畫面
                         if not self.achievement_screen():
+                            return False
+                    elif event.key == pygame.K_s:
+                        # 打開商店畫面
+                        if not self.shop.show_shop_screen(self.screen, self.font, self.title_font):
                             return False
                     elif event.key == pygame.K_SPACE:
                         waiting = False
@@ -748,6 +784,59 @@ class GameEngine:
         else:
             return "F", (255, 100, 100), "慘不忍睹"
     
+    def calculate_diamond_reward(self, rank, score, victory):
+        """根據評級計算鑽石獎勵"""
+        # 基礎獎勵（根據評級）
+        rank_rewards = {
+            "S": 50,   # 傳說級
+            "A": 30,   # 優秀
+            "B": 20,   # 良好
+            "C": 10,   # 及格
+            "D": 5,    # 勉強
+            "F": 2     # 安慰獎
+        }
+        base_reward = rank_rewards.get(rank, 0)
+        
+        # 勝利獎勵
+        victory_bonus = 10 if victory else 0
+        
+        # 難度獎勵
+        difficulty_bonus = 0
+        if self.difficulty == "Hard":
+            difficulty_bonus = 5
+        elif self.difficulty == "Hell":
+            difficulty_bonus = 15
+        
+        # 完美通關額外獎勵
+        perfect_bonus = 0
+        if victory and self.total_deaths == 0:
+            perfect_bonus = 20  # 零死亡額外獎勵
+        
+        total_reward = base_reward + victory_bonus + difficulty_bonus + perfect_bonus
+        return total_reward
+    
+    def save_diamonds(self):
+        """保存鑽石到文件"""
+        import json
+        try:
+            with open("player_data.json", 'w', encoding='utf-8') as f:
+                json.dump({"diamonds": self.diamonds}, f)
+        except Exception as e:
+            print(f"保存鑽石失敗: {e}")
+    
+    def load_diamonds(self):
+        """讀取鑽石"""
+        import json
+        import os
+        if os.path.exists("player_data.json"):
+            try:
+                with open("player_data.json", 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.diamonds = data.get("diamonds", 0)
+            except Exception as e:
+                print(f"讀取鑽石失敗: {e}")
+                self.diamonds = 0
+    
     def show_score_screen(self, victory=False):
         """顯示詳細評分畫面"""
         final_score, breakdown, difficulty_mult = self.calculate_score(victory)
@@ -755,6 +844,9 @@ class GameEngine:
         
         # 記錄最終評級（用於成就）
         self.final_rank = rank
+        
+        # 計算鑽石獎勵
+        diamond_reward = self.calculate_diamond_reward(rank, final_score, victory)
         
         waiting = True
         while waiting:
@@ -815,6 +907,19 @@ class GameEngine:
                 
                 y += 30
             
+            # 鑽石獎勵顯示
+            y += 40
+            diamond_title = self.title_font.render("💎 鑽石獎勵 💎", True, (100, 200, 255))
+            self.screen.blit(diamond_title, (cx - diamond_title.get_width()//2, y))
+            y += 40
+            
+            diamond_text = self.large_font.render(f"+{diamond_reward} 💎", True, (100, 200, 255))
+            self.screen.blit(diamond_text, (cx - diamond_text.get_width()//2, y))
+            y += 40
+            
+            total_diamonds = self.title_font.render(f"總鑽石: {self.diamonds} → {self.diamonds + diamond_reward}", True, (200, 200, 200))
+            self.screen.blit(total_diamonds, (cx - total_diamonds.get_width()//2, y))
+            
             # 提示
             y = self.map_height - 40
             hint = self.font.render("按 [任意鍵] 繼續", True, (150, 150, 150))
@@ -826,6 +931,9 @@ class GameEngine:
                 if event.type == pygame.QUIT:
                     waiting = False
                 if event.type == pygame.KEYDOWN:
+                    # 發放鑽石獎勵
+                    self.diamonds += diamond_reward
+                    self.save_diamonds()
                     waiting = False
     
     

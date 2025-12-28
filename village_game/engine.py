@@ -406,7 +406,7 @@ class GameEngine:
                  self.draw_text_centered(self.screen, f"...還有 {len(self.daily_deaths)-3} 人", self.font, (200, 200, 200), cx, death_y + 105)
 
         repair_y = cy + 120
-        repair_cost = self.get_repair_cost()
+        repair_cost = self.get_repair_cost()     
         can_afford = self.wood >= repair_cost
         repair_color = (100, 255, 255) if can_afford else (100, 100, 100)
         repair_txt = f"[R] 修復城牆 (+150 HP) - 消耗 {repair_cost} 木頭"

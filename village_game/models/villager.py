@@ -54,7 +54,7 @@ class Villager:
                         count += 1
         
         if count > 0:
-            # 施加排斥力，稍微調整強度
+            # 施加排斥力，稍微調整強度   
             if separation_force.length() > 0:
                 self.pos += separation_force.normalize() * 1.5
 

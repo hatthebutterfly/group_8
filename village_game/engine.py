@@ -139,7 +139,13 @@ class GameEngine:
         elif level == "Hell":
             config.HUNGER_RATE = 0.15  
             self.spawn_interval = 100 
-            self.is_hell_mode = True  
+            self.is_hell_mode = True
+        elif level == "Endless":
+            # 無盡模式初始設定（類似Normal）
+            config.HUNGER_RATE = 0.05
+            self.spawn_interval = 45
+            self.is_endless_mode = True
+            self.endless_high_score = self.load_endless_high_score()  
 
     def init_world(self, hero_choice):
         self.villagers = [] 
@@ -198,6 +204,28 @@ class GameEngine:
         
         if self.difficulty == "Hard": attack_damage = int(attack_damage * 1.3)
         if self.difficulty == "Hell": attack_damage = int(attack_damage * 1.5)
+        
+        # 無盡模式：難度隨天數增加
+        if self.difficulty == "Endless":
+            # 每5天提升一次難度
+            if self.day <= 15:
+                attack_damage = int(attack_damage * 1.0)  # 前15天正常
+            elif self.day <= 30:
+                attack_damage = int(attack_damage * 1.2)  # 16-30天 +20%
+            elif self.day <= 50:
+                attack_damage = int(attack_damage * 1.5)  # 31-50天 +50%
+            elif self.day <= 75:
+                attack_damage = int(attack_damage * 2.0)  # 51-75天 +100%
+            else:
+                attack_damage = int(attack_damage * 3.0)  # 75天+ 極限難度
+            
+            # 動態調整飢餓速度
+            if self.day > 15:
+                config.HUNGER_RATE = min(0.15, 0.05 + (self.day - 15) * 0.002)
+            
+            # 動態調整資源生成
+            if self.day > 20:
+                self.spawn_interval = min(120, 45 + (self.day - 20) * 2)
 
         # 記錄野獸襲擊
         self.beast_attacks += 1
@@ -503,13 +531,34 @@ class GameEngine:
         pygame.draw.rect(self.screen, wall_color, (start_x, status_y + 25, 200 * wall_pct, 8))
         
         day_y = status_y + 50
-        self.draw_text_with_shadow(self.screen, f"Day: {self.day} / 15", self.title_font, (255, 255, 200), start_x, day_y)
+        if self.difficulty == "Endless":
+            # 無盡模式顯示當前難度階段
+            if self.day <= 15:
+                stage = "階段1: 正常"
+                stage_color = (100, 255, 100)
+            elif self.day <= 30:
+                stage = "階段2: 困難"
+                stage_color = (255, 165, 0)
+            elif self.day <= 50:
+                stage = "階段3: 地獄"
+                stage_color = (255, 100, 100)
+            elif self.day <= 75:
+                stage = "階段4: 煉獄"
+                stage_color = (200, 50, 50)
+            else:
+                stage = "階段5: 極限"
+                stage_color = (138, 43, 226)
+            
+            self.draw_text_with_shadow(self.screen, f"Day: {self.day}", self.title_font, (255, 255, 200), start_x, day_y)
+            self.draw_text_with_shadow(self.screen, stage, self.font, stage_color, start_x, day_y + 30)
+        else:
+            self.draw_text_with_shadow(self.screen, f"Day: {self.day} / 15", self.title_font, (255, 255, 200), start_x, day_y)
         
         time_pct = self.frame_count / config.DAY_LENGTH
-        pygame.draw.rect(self.screen, (20, 20, 20), (start_x, day_y + 35, 200, 6))
+        pygame.draw.rect(self.screen, (20, 20, 20), (start_x, day_y + 55, 200, 6))
         bar_color = (255, 255, 100)
         if time_pct > 0.7: bar_color = (150, 100, 255)
-        pygame.draw.rect(self.screen, bar_color, (start_x, day_y + 35, 200 * time_pct, 6))
+        pygame.draw.rect(self.screen, bar_color, (start_x, day_y + 55, 200 * time_pct, 6))
         
         log_bg_y = self.map_height - 250
         log_h = 230
@@ -577,18 +626,37 @@ class GameEngine:
         pygame.display.flip()
 
     def game_over_screen(self):
-        # 先顯示評分畫面
-        self.show_score_screen(victory=False)
+        # 無盡模式顯示特殊評分畫面
+        if self.difficulty == "Endless":
+            self.show_endless_score_screen()
+        else:
+            # 一般模式顯示評分畫面
+            self.show_score_screen(victory=False)
         
         while True:
             self.screen.fill((0, 0, 0))
             cx, cy = (self.map_width + config.UI_WIDTH) // 2, self.map_height // 2
             
-            t = self.large_font.render("GAME OVER", True, (255, 0, 0))
-            self.screen.blit(t, (cx - t.get_width()//2, cy - 80))
-            
-            sub = self.title_font.render(f"你存活了 {self.day} 天", True, (200, 200, 200))
-            self.screen.blit(sub, (cx - sub.get_width()//2, cy))
+            if self.difficulty == "Endless":
+                t = self.large_font.render("無盡模式結束", True, (138, 43, 226))
+                self.screen.blit(t, (cx - t.get_width()//2, cy - 100))
+                
+                sub = self.title_font.render(f"你存活了 {self.day} 天！", True, (255, 215, 0))
+                self.screen.blit(sub, (cx - sub.get_width()//2, cy - 30))
+                
+                # 顯示最高紀錄
+                if self.day > self.endless_high_score:
+                    record_text = self.title_font.render("🏆 新紀錄！", True, (255, 215, 0))
+                    self.screen.blit(record_text, (cx - record_text.get_width()//2, cy + 20))
+                else:
+                    record_text = self.font.render(f"最高紀錄: {self.endless_high_score} 天", True, (200, 200, 200))
+                    self.screen.blit(record_text, (cx - record_text.get_width()//2, cy + 20))
+            else:
+                t = self.large_font.render("GAME OVER", True, (255, 0, 0))
+                self.screen.blit(t, (cx - t.get_width()//2, cy - 80))
+                
+                sub = self.title_font.render(f"你存活了 {self.day} 天", True, (200, 200, 200))
+                self.screen.blit(sub, (cx - sub.get_width()//2, cy))
             
             hint = self.font.render("按 [R] 重新開始  /  按 [ESC] 離開", True, (150, 150, 150))
             self.screen.blit(hint, (cx - hint.get_width()//2, cy + 80))
@@ -837,6 +905,164 @@ class GameEngine:
                 print(f"讀取鑽石失敗: {e}")
                 self.diamonds = 0
     
+    def load_endless_high_score(self):
+        """讀取無盡模式最高紀錄"""
+        import json
+        import os
+        if os.path.exists("endless_records.json"):
+            try:
+                with open("endless_records.json", 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get("high_score", 0)
+            except Exception as e:
+                print(f"讀取無盡紀錄失敗: {e}")
+        return 0
+    
+    def save_endless_high_score(self, days):
+        """保存無盡模式最高紀錄"""
+        import json
+        if days > self.endless_high_score:
+            self.endless_high_score = days
+            try:
+                with open("endless_records.json", 'w', encoding='utf-8') as f:
+                    json.dump({"high_score": days}, f)
+            except Exception as e:
+                print(f"保存無盡紀錄失敗: {e}")
+    
+    def calculate_endless_score(self):
+        """計算無盡模式評分"""
+        score_breakdown = {}
+        total_score = 0
+        
+        # 1. 存活天數（主要分數）每天20分
+        survival_score = self.day * 20
+        score_breakdown['存活天數'] = (survival_score, f"{self.day} 天")
+        total_score += survival_score
+        
+        # 2. 人口獎勵（每人10分）
+        living_count = len([v for v in self.villagers if v.is_alive])
+        population_score = living_count * 10
+        score_breakdown['倖存人口'] = (population_score, f"{living_count} 人")
+        total_score += population_score
+        
+        # 3. 資源獎勵
+        resource_score = (self.food + self.wood + self.gold * 5) // 3
+        score_breakdown['資源儲備'] = (resource_score, f"糧{self.food}木{self.wood}金{self.gold}")
+        total_score += resource_score
+        
+        # 4. 城牆獎勵
+        wall_score = self.wall_hp // 10
+        score_breakdown['城牆防禦'] = (wall_score, f"{self.wall_hp} HP")
+        total_score += wall_score
+        
+        # 5. 死亡懲罰
+        death_penalty = -self.total_deaths * 5
+        score_breakdown['死亡懲罰'] = (death_penalty, f"{self.total_deaths} 人")
+        total_score += death_penalty
+        
+        # 6. 里程碑獎勵
+        milestone_bonus = 0
+        if self.day >= 20: milestone_bonus += 100
+        if self.day >= 30: milestone_bonus += 200
+        if self.day >= 50: milestone_bonus += 300
+        if self.day >= 75: milestone_bonus += 500
+        if self.day >= 100: milestone_bonus += 1000
+        if milestone_bonus > 0:
+            score_breakdown['里程碑獎勵'] = (milestone_bonus, f"{self.day}天達成")
+            total_score += milestone_bonus
+        
+        return total_score, score_breakdown
+    
+    def get_endless_rank(self, days):
+        """根據存活天數返回評級"""
+        if days >= 100:
+            return "傳說", (255, 215, 0), "🏆"
+        elif days >= 75:
+            return "史詩", (200, 100, 255), "⭐"
+        elif days >= 50:
+            return "精英", (100, 200, 255), "💎"
+        elif days >= 30:
+            return "老兵", (100, 255, 100), "🛡️"
+        elif days >= 20:
+            return "戰士", (255, 165, 0), "⚔️"
+        elif days >= 15:
+            return "倖存者", (200, 200, 200), "🎖️"
+        else:
+            return "新手", (150, 150, 150), "🔰"
+    
+    def show_endless_score_screen(self):
+        """顯示無盡模式評分畫面"""
+        total_score, breakdown = self.calculate_endless_score()
+        rank_name, rank_color, rank_icon = self.get_endless_rank(self.day)
+        
+        # 保存最高紀錄
+        self.save_endless_high_score(self.day)
+        
+        waiting = True
+        while waiting:
+            self.screen.fill((10, 10, 20))
+            cx = (self.map_width + config.UI_WIDTH) // 2
+            
+            # 標題
+            y = 30
+            title = self.large_font.render("無盡模式評分", True, (138, 43, 226))
+            self.screen.blit(title, (cx - title.get_width()//2, y))
+            
+            # 評級顯示
+            y += 70
+            rank_bg = pygame.Surface((180, 180), pygame.SRCALPHA)
+            pygame.draw.circle(rank_bg, (*rank_color, 80), (90, 90), 85)
+            self.screen.blit(rank_bg, (cx - 90, y))
+            
+            rank_icon_text = pygame.font.Font(None, 100).render(rank_icon, True, rank_color)
+            self.screen.blit(rank_icon_text, (cx - rank_icon_text.get_width()//2, y + 35))
+            
+            rank_text = self.title_font.render(rank_name, True, rank_color)
+            self.screen.blit(rank_text, (cx - rank_text.get_width()//2, y + 140))
+            
+            # 存活天數（大字）
+            y += 200
+            days_text = self.large_font.render(f"{self.day} 天", True, (255, 215, 0))
+            self.screen.blit(days_text, (cx - days_text.get_width()//2, y))
+            
+            # 最高紀錄
+            y += 60
+            if self.day > self.endless_high_score or self.endless_high_score == 0:
+                record_text = self.title_font.render("🏆 新紀錄！", True, (255, 215, 0))
+            else:
+                record_text = self.font.render(f"最高紀錄: {self.endless_high_score} 天", True, (150, 150, 150))
+            self.screen.blit(record_text, (cx - record_text.get_width()//2, y))
+            
+            # 總分
+            y += 60
+            score_text = self.title_font.render(f"總分: {total_score}", True, (255, 255, 255))
+            self.screen.blit(score_text, (cx - score_text.get_width()//2, y))
+            
+            # 評分明細
+            y += 60
+            detail_title = self.font.render("--- 評分明細 ---", True, (150, 150, 150))
+            self.screen.blit(detail_title, (cx - detail_title.get_width()//2, y))
+            y += 30
+            
+            for key, (points, desc) in breakdown.items():
+                color = (100, 255, 100) if points > 0 else (255, 100, 100) if points < 0 else (200, 200, 200)
+                sign = "+" if points > 0 else ""
+                item_text = self.font.render(f"{key}: {sign}{points}  ({desc})", True, color)
+                self.screen.blit(item_text, (cx - item_text.get_width()//2, y))
+                y += 25
+            
+            # 提示
+            hint = self.font.render("按 [任意鍵] 繼續", True, (150, 150, 150))
+            self.screen.blit(hint, (cx - hint.get_width()//2, self.map_height - 40))
+            
+            pygame.display.flip()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    waiting = False
+                if event.type == pygame.KEYDOWN:
+                    waiting = False
+    
     def show_score_screen(self, victory=False):
         """顯示詳細評分畫面"""
         final_score, breakdown, difficulty_mult = self.calculate_score(victory)
@@ -1070,7 +1296,8 @@ class GameEngine:
             options = [
                 {"key": "[1]", "name": "Normal (一般)", "color": (100, 255, 100), "desc": "標準體驗。資源生成正常，野獸傷害適中。"},
                 {"key": "[2]", "name": "Hard (困難)", "color": (255, 165, 0), "desc": "資源生成 -30%，飢餓速度加快，夜襲傷害加倍。"},
-                {"key": "[3]", "name": "Hell (地獄)", "color": (255, 0, 0), "desc": "極限挑戰。資源極少，且只要死亡一人即遊戲結束 (Permadeath)。"}
+                {"key": "[3]", "name": "Hell (地獄)", "color": (255, 0, 0), "desc": "極限挑戰。資源極少，且只要死亡一人即遊戲結束 (Permadeath)。"},
+                {"key": "[4]", "name": "Endless (無盡)", "color": (138, 43, 226), "desc": "無盡模式！難度隨天數增加，挑戰你的極限，看能活幾天！"}
             ]
             y = 150    
             for opt in options:
@@ -1086,7 +1313,7 @@ class GameEngine:
                 desc_txt = self.font.render(opt["desc"], True, (200, 200, 200))
                 self.screen.blit(desc_txt, (rect_x + 120, y + 70))
                 y += 140
-            hint = self.font.render("按鍵盤 [1] [2] [3] 確認", True, (150, 150, 150))
+            hint = self.font.render("按鍵盤 [1] [2] [3] [4] 確認", True, (150, 150, 150))
             self.screen.blit(hint, (cx - hint.get_width()//2, 600))
             pygame.display.flip()
             for event in pygame.event.get():
@@ -1096,6 +1323,7 @@ class GameEngine:
                     if event.key == pygame.K_1: selected_diff = "Normal"
                     if event.key == pygame.K_2: selected_diff = "Hard"
                     if event.key == pygame.K_3: selected_diff = "Hell"
+                    if event.key == pygame.K_4: selected_diff = "Endless"
         return selected_diff
 
     def run(self):
@@ -1127,8 +1355,8 @@ class GameEngine:
                     else:
                         return # 離開    
                 
-                # 檢查勝利
-                if self.day >= 15:
+                # 檢查勝利（無盡模式沒有15天限制）
+                if self.day >= 15 and self.difficulty != "Endless":
                     pygame.time.delay(1000)
                     if self.game_won_screen():
                         should_restart = True

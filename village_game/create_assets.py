@@ -29,7 +29,7 @@ def create_surface(color, shape_type):
         pygame.draw.circle(s, (255, 220, 180), (16, 10), 8)
         
     elif shape_type == "food":
-        # 畫蘋果
+        # 畫蘋果    
         pygame.draw.circle(s, (220, 20, 20), (16, 18), 10)
         pygame.draw.rect(s, (0, 150, 0), (16, 6, 6, 6)) # 葉子
         

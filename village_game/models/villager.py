@@ -65,6 +65,10 @@ class Villager:
         if self.role == "Hero":
             pass 
         else:
+            # --- [修正] 增加飢餓度邏輯 ---
+            # 讓飢餓度隨著時間上升，觸發後續的找食物行為
+            self.hunger += config.HUNGER_RATE 
+
             # --- 日夜作息系統 ---
             is_night = (self.engine.frame_count / config.DAY_LENGTH) > 0.7
             
@@ -89,6 +93,7 @@ class Villager:
                 else:
                     # 到了就發呆
                     self.wander()
+                    # 在營火旁休息可以緩慢恢復飢餓
                     if self.engine.frame_count % 60 == 0:
                         self.hunger = max(0, self.hunger - 0.5)
 
@@ -112,11 +117,13 @@ class Villager:
         
         for r in self.engine.resources:
             if r.active and self.pos.distance_to(r.pos) < pickup_range:
+                # 如果村民餓了且遇到食物 -> 吃掉 (不進庫存)
                 if self.role != "Hero" and r.type == "Food" and self.hunger > 60:
                     r.active = False
                     self.hunger = 0
                     self.engine.add_floating_text(self.pos, "Yummy!", (100, 255, 100))
                 else:
+                    # 否則收集資源 (進庫存)
                     r.active = False
                     if r.type == "Food": 
                         self.engine.food += 5

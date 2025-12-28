@@ -567,7 +567,7 @@ class GameEngine:
                 text = self.font.render(line, True, (200, 200, 200))
                 self.screen.blit(text, (cx - text.get_width()//2, y))
                 y += 40
-            pygame.display.flip()
+            pygame.display.flip()    
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return False
                 if event.type == pygame.KEYDOWN: 

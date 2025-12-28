@@ -1326,7 +1326,7 @@ class GameEngine:
                     if event.key == pygame.K_4: selected_diff = "Endless"  
         return selected_diff
 
-    def run(self):
+    def run(self):  
         while True:
             self.reset_game_state()
             if not self.start_screen(): break

@@ -157,5 +157,5 @@ class Villager:
             screen.blit(img, rect)
             if self.hunger > 60:
                 pygame.draw.circle(screen, (255, 50, 50), (int(self.pos.x) + 10, int(self.pos.y) - 15), 4)
-        else:
+        else:    
             pygame.draw.circle(screen, self.color, (int(self.pos.x), int(self.pos.y)), 10)

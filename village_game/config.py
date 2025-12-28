@@ -41,6 +41,7 @@ WOOD_VALUE = 5
 GOLD_VALUE = 50       
 
 PROSPERITY_THRESHOLD = 300 
-MAX_HEROES = 5             
-
+MAX_HEROES = 5
+             
+#字體
 FONT_FILE = "font.ttf"

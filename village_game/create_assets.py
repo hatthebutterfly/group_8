@@ -40,7 +40,7 @@ def create_surface(color, shape_type):
         pygame.draw.circle(s, (140, 100, 50), (6, 13), 3) # 年輪
         
     elif shape_type == "gold":
-        # 畫金幣/金塊    
+        # 畫金幣    
         pygame.draw.polygon(s, (255, 215, 0), [(16, 2), (28, 16), (16, 30), (4, 16)])
         pygame.draw.polygon(s, (255, 255, 200), [(16, 6), (24, 16), (16, 26), (8, 16)])
         

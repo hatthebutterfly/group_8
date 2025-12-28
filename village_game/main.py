@@ -9,5 +9,3 @@ if __name__ == "__main__":
         print("\n!!! 遊戲發生錯誤 !!!\n")
         traceback.print_exc()
         input("\n按 [Enter] 鍵退出...")
-        
-        

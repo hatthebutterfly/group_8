@@ -77,7 +77,7 @@ class GameEngine:
         self.logs = ["歡迎來到荒野...", "按 [ESC] 可隨時退出"]
         self.day = 1
         self.frame_count = 0
-        
+
         self.in_transition = False
         self.transition_alpha = 0
         self.showing_summary = False

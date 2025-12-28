@@ -1318,7 +1318,7 @@ class GameEngine:
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return None
-                if event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN:  
                     if event.key == pygame.K_ESCAPE: return None
                     if event.key == pygame.K_1: selected_diff = "Normal"
                     if event.key == pygame.K_2: selected_diff = "Hard"

@@ -326,7 +326,7 @@ class GameEngine:
 
     def draw_text_centered(self, surface, text, font, color, center_x, center_y):
         surf = font.render(text, True, color)
-        rect = surf.get_rect(center=(center_x, center_y))
+        rect = surf.get_rect(center=(center_x, center_y))    
         surface.blit(surf, rect)
 
     def draw_text_with_shadow(self, surface, text, font, color, x, y):

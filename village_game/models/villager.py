@@ -134,7 +134,7 @@ class Villager:
             self.dir = direction.normalize()
             self.pos += self.dir * (self.speed * speed_mult)
 
-    def wander(self):
+    def wander(self):     
         self.pos += self.dir * (self.speed * 0.5) # 發呆時走慢點
         self.change_dir_timer += 1
         

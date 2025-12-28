@@ -2,6 +2,7 @@ import pygame
 import os
 
 # 設定圖片大小與資料夾
+
 IMG_SIZE = 32
 ASSET_DIR = "assets"
 if not os.path.exists(ASSET_DIR):

@@ -554,7 +554,7 @@ class GameEngine:
                     if event.key == pygame.K_r: return True
                     if event.key == pygame.K_ESCAPE: return False
 
-    def start_screen(self):
+    def start_screen(self):    
         waiting = True
         while waiting:
             self.screen.fill((20, 20, 30))

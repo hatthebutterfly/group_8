@@ -92,7 +92,7 @@ class Villager:
                     if self.engine.frame_count % 60 == 0:
                         self.hunger = max(0, self.hunger - 0.5)
 
-            # [狀態 C] 白天：工作
+            # [狀態 C] 白天：工作    
             else:
                 res = self.get_nearest_resource(["Wood", "Gold", "Food"])
                 if res:

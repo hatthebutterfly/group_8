@@ -6,6 +6,7 @@ from models.resource import Resource
 from models.villager import Villager
 from models.hero import SonicHero, HealerHero, TycoonHero, BuilderHero, OracleHero
 from models.event_system import EventManager
+from achievement_system import AchievementManager
 
 # --- 浮動文字特效類別 ---    
 class FloatingText:
@@ -100,6 +101,10 @@ class GameEngine:
         self.event_manager = EventManager(self)
         self.is_paused = False
         
+        # 成就系統（只在第一次初始化）
+        if not hasattr(self, 'achievement_manager'):
+            self.achievement_manager = AchievementManager(self)
+        
         self.difficulty = "Normal"
         self.spawn_interval = 60 
         self.spawn_timer = 0
@@ -163,6 +168,17 @@ class GameEngine:
         self.notification_text = text
         self.notification_color = color
         self.notification_timer = 180
+    
+    def show_achievement_notification(self, achievement):
+        """顯示成就解鎖通知"""
+        rarity_colors = {
+            "common": (200, 200, 200),
+            "rare": (100, 150, 255),
+            "epic": (200, 100, 255),
+            "legendary": (255, 215, 0)
+        }
+        color = rarity_colors.get(achievement.rarity, (255, 255, 255))
+        self.show_notification(f"🏆 成就解鎖: {achievement.name}", color)
 
     def process_night_phase(self):
         self.daily_deaths = []
@@ -267,6 +283,10 @@ class GameEngine:
             return
 
         for v in self.villagers: v.update()
+        
+        # 檢查成就（每半秒一次）
+        if self.frame_count % 30 == 0:
+            self.achievement_manager.check_achievements()
         
         hero = next((v for v in self.villagers if v.role == "Hero"), None)
         if hero and hero.is_alive:
@@ -583,18 +603,29 @@ class GameEngine:
             cx = (self.map_width + config.UI_WIDTH) // 2
             title = self.large_font.render("Village Sim: 15 Days Challenge", True, (255, 215, 0))
             self.screen.blit(title, (cx - title.get_width()//2, 100))
-            instructions = ["【生存挑戰】目標：活到第 15 天", "-----------------------------", "1. 資源管理：綠色=糧食，褐色=木材，金色=貨幣。", "2. 英雄操控：WASD 移動，靠近資源自動撿取。", "3. 夜晚威脅：野獸會攻擊牆壁，無牆壁則咬死村民。", "4. 每日結算：檢視傷亡與消耗資源。", "-----------------------------", "按 [任意鍵] 開始旅程"]
+            instructions = ["【生存挑戰】目標：活到第 15 天", "-----------------------------", "1. 資源管理：綠色=糧食，褐色=木材，金色=貨幣。", "2. 英雄操控：WASD/方向鍵 移動，靠近資源自動撿取。", "3. 夜晚威脅：野獸會攻擊牆壁，無牆壁則咬死村民。", "4. 每日結算：檢視傷亡與消耗資源。", "-----------------------------", "按 [空白鍵] 開始遊戲  |  按 [A] 查看成就"]
             y = 200
             for line in instructions:
                 text = self.font.render(line, True, (200, 200, 200))
                 self.screen.blit(text, (cx - text.get_width()//2, y))
                 y += 40
+            
+            # 成就解鎖率顯示
+            unlocked, total, rate = self.achievement_manager.get_unlock_rate()
+            ach_text = self.font.render(f"🏆 成就解鎖: {unlocked}/{total} ({rate:.1f}%)", True, (255, 215, 0))
+            self.screen.blit(ach_text, (cx - ach_text.get_width()//2, y + 20))
+            
             pygame.display.flip()    
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return False
                 if event.type == pygame.KEYDOWN: 
                     if event.key == pygame.K_ESCAPE: return False
-                    waiting = False
+                    elif event.key == pygame.K_a:
+                        # 打開成就畫面
+                        if not self.achievement_screen():
+                            return False
+                    elif event.key == pygame.K_SPACE:
+                        waiting = False
         return True
 
     def hero_selection_screen(self):
@@ -722,6 +753,9 @@ class GameEngine:
         final_score, breakdown, difficulty_mult = self.calculate_score(victory)
         rank, rank_color, rank_title = self.get_rank(final_score)
         
+        # 記錄最終評級（用於成就）
+        self.final_rank = rank
+        
         waiting = True
         while waiting:
             self.screen.fill((10, 10, 15))
@@ -793,6 +827,130 @@ class GameEngine:
                     waiting = False
                 if event.type == pygame.KEYDOWN:
                     waiting = False
+    
+    
+    def achievement_screen(self):
+        """成就查看畫面"""
+        selected_category = "全部"
+        categories = ["全部", "生存", "戰鬥", "收集", "人口", "事件", "特殊"]
+        category_index = 0
+        scroll_offset = 0
+        
+        while True:
+            self.screen.fill((15, 15, 20))
+            cx = (self.map_width + config.UI_WIDTH) // 2
+            
+            # 標題
+            title = self.large_font.render("🏆 成就系統", True, (255, 215, 0))
+            self.screen.blit(title, (cx - title.get_width()//2, 20))
+            
+            # 解鎖率
+            unlocked, total, rate = self.achievement_manager.get_unlock_rate()
+            rate_text = self.title_font.render(f"解鎖進度: {unlocked}/{total} ({rate:.1f}%)", True, (200, 200, 200))
+            self.screen.blit(rate_text, (cx - rate_text.get_width()//2, 70))
+            
+            # 類別選擇
+            y = 120
+            cat_text = self.font.render(f"類別: {selected_category}", True, (255, 255, 255))
+            self.screen.blit(cat_text, (50, y))
+            hint = self.font.render("[左右鍵切換]", True, (150, 150, 150))
+            self.screen.blit(hint, (250, y))
+            
+            # 獲取當前類別的成就
+            if selected_category == "全部":
+                achievements = self.achievement_manager.achievements
+            else:
+                achievements = self.achievement_manager.get_achievements_by_category(selected_category)
+            
+            # 顯示成就列表
+            y = 170
+            max_display = 8
+            start_idx = scroll_offset
+            end_idx = min(start_idx + max_display, len(achievements))
+            
+            for i in range(start_idx, end_idx):
+                ach = achievements[i]
+                
+                # 成就框
+                box_y = y + (i - start_idx) * 70
+                box_height = 65
+                
+                # 背景
+                if ach.unlocked:
+                    bg_color = (30, 40, 30)
+                    border_color = ach.icon_color
+                else:
+                    bg_color = (20, 20, 25)
+                    border_color = (80, 80, 80)
+                
+                pygame.draw.rect(self.screen, bg_color, (50, box_y, self.map_width + config.UI_WIDTH - 100, box_height), 0, 5)
+                pygame.draw.rect(self.screen, border_color, (50, box_y, self.map_width + config.UI_WIDTH - 100, box_height), 2, 5)
+                
+                # 圖標
+                icon_size = 50
+                pygame.draw.circle(self.screen, ach.icon_color if ach.unlocked else (60, 60, 60), 
+                                 (85, box_y + box_height//2), icon_size//2)
+                
+                # 成就名稱
+                name_color = (255, 255, 255) if ach.unlocked else (120, 120, 120)
+                name = self.title_font.render(ach.name, True, name_color)
+                self.screen.blit(name, (130, box_y + 5))
+                
+                # 描述
+                desc_color = (200, 200, 200) if ach.unlocked else (100, 100, 100)
+                desc = self.font.render(ach.description, True, desc_color)
+                self.screen.blit(desc, (130, box_y + 35))
+                
+                # 稀有度標籤
+                rarity_colors = {
+                    "common": (200, 200, 200),
+                    "rare": (100, 150, 255),
+                    "epic": (200, 100, 255),
+                    "legendary": (255, 215, 0)
+                }
+                rarity_names = {
+                    "common": "普通",
+                    "rare": "稀有",
+                    "epic": "史詩",
+                    "legendary": "傳說"
+                }
+                rarity_text = self.font.render(rarity_names[ach.rarity], True, rarity_colors[ach.rarity])
+                self.screen.blit(rarity_text, (self.map_width + config.UI_WIDTH - 150, box_y + 10))
+                
+                # 解鎖時間
+                if ach.unlocked and ach.unlock_time:
+                    time_text = self.font.render(ach.unlock_time, True, (150, 150, 150))
+                    self.screen.blit(time_text, (self.map_width + config.UI_WIDTH - 250, box_y + 40))
+            
+            # 滾動提示
+            if len(achievements) > max_display:
+                scroll_hint = self.font.render(f"[上下鍵滾動] {start_idx + 1}-{end_idx}/{len(achievements)}", True, (150, 150, 150))
+                self.screen.blit(scroll_hint, (cx - scroll_hint.get_width()//2, self.map_height - 80))
+            
+            # 返回提示
+            back_hint = self.font.render("按 [ESC] 返回", True, (150, 150, 150))
+            self.screen.blit(back_hint, (cx - back_hint.get_width()//2, self.map_height - 40))
+            
+            pygame.display.flip()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return True
+                    elif event.key == pygame.K_LEFT:
+                        category_index = (category_index - 1) % len(categories)
+                        selected_category = categories[category_index]
+                        scroll_offset = 0
+                    elif event.key == pygame.K_RIGHT:
+                        category_index = (category_index + 1) % len(categories)
+                        selected_category = categories[category_index]
+                        scroll_offset = 0
+                    elif event.key == pygame.K_UP:
+                        scroll_offset = max(0, scroll_offset - 1)
+                    elif event.key == pygame.K_DOWN:
+                        scroll_offset = min(len(achievements) - max_display, scroll_offset + 1) if len(achievements) > max_display else 0
     
     def difficulty_selection_screen(self):
         selected_diff = None
@@ -873,5 +1031,3 @@ class GameEngine:
                 self.clock.tick(config.FPS)
             
             if not should_restart: break
-            
-            

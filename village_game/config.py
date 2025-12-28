@@ -4,6 +4,7 @@ import os
 INITIAL_MAP_WIDTH = 960  
 INITIAL_MAP_HEIGHT = 720
 UI_WIDTH = 280           
+
 # --- 顏色 (R, G, B) ---
 COLOR_BG = (30, 30, 30)
 COLOR_MAP = (34, 139, 34)       
@@ -11,6 +12,7 @@ COLOR_UI_BG = (40, 44, 52)
 COLOR_UI_BORDER = (70, 75, 85)  
 COLOR_TEXT = (255, 255, 255)
 COLOR_TEXT_SHADOW = (0, 0, 0)   
+
 # 資源顏色
 COLOR_FOOD = (0, 255, 0)        
 COLOR_WOOD = (139, 69, 19)      

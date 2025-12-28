@@ -7,7 +7,7 @@ from models.villager import Villager
 from models.hero import SonicHero, HealerHero, TycoonHero, BuilderHero, OracleHero
 from models.event_system import EventManager
 
-# --- 浮動文字特效類別 ---
+# --- 浮動文字特效類別 ---    
 class FloatingText:
     def __init__(self, x, y, text, color):
         self.x = x

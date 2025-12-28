@@ -204,7 +204,7 @@ class GameEngine:
                     self.daily_deaths.append(f"{v.name} ({reason})")
                     if self.is_hell_mode:
                         for vil in self.villagers: vil.is_alive = False
-                        self.showing_summary = True
+                        self.showing_summary = True    
                         return
 
         self.showing_summary = True

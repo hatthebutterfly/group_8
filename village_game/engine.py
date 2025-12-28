@@ -629,7 +629,7 @@ class GameEngine:
                 {"key": "[2]", "name": "Hard (困難)", "color": (255, 165, 0), "desc": "資源生成 -30%，飢餓速度加快，夜襲傷害加倍。"},
                 {"key": "[3]", "name": "Hell (地獄)", "color": (255, 0, 0), "desc": "極限挑戰。資源極少，且只要死亡一人即遊戲結束 (Permadeath)。"}
             ]
-            y = 150
+            y = 150    
             for opt in options:
                 rect_w = 600
                 rect_h = 120

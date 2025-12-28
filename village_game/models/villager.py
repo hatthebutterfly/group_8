@@ -1,6 +1,5 @@
 import pygame
 import random
-import math
 import config
 
 class Villager:
@@ -8,157 +7,155 @@ class Villager:
         self.engine = engine
         self.name = name
         self.color = color
-        self.role = role
+        self.role = role 
         
         self.pos = pygame.math.Vector2(
-            random.randint(50, engine.map_width - 50),
-            random.randint(50, engine.map_height - 50)
+            random.randint(50, engine.map_width-50),
+            random.randint(50, engine.map_height-50)
         )
+        self.dir = pygame.math.Vector2(random.choice([-1, 1]), random.choice([-1, 1])).normalize()
         
-        # 職業差異設定
-        if self.role == "Hunter":
-            self.speed = 1.5   # 獵人跑得快
-        else:
-            self.speed = 0.8   # 農夫走得慢
-            
-        self.vel = pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.speed
-        
-        self.is_alive = True
+        self.speed = 1.0 if role == "Hero" else 0.9
         self.hunger = 0
+        self.is_alive = True
+        self.change_dir_timer = 0
+
+        # 用來避免重疊的隨機偏移量，每個人有自己的一個「舒適區」
+        self.personal_space_offset = pygame.math.Vector2(random.randint(-30, 30), random.randint(-30, 30))
+
+    def get_nearest_resource(self, target_types):
+        target = None
+        min_dist = 9999
+        for r in self.engine.resources:
+            if r.active and r.type in target_types:
+                dist = self.pos.distance_to(r.pos)
+                if dist < min_dist:
+                    min_dist = dist
+                    target = r
+        return target
+
+    def apply_separation(self):
+        """[AI 新增] 分離力：避免村民全部疊在一起"""
+        separation_force = pygame.math.Vector2(0, 0)
+        count = 0
+        
+        # 檢查附近的每個村民
+        for other in self.engine.villagers:
+            if other is not self and other.is_alive:
+                dist = self.pos.distance_to(other.pos)
+                # 如果距離太近 (小於 25 像素)
+                if dist < 25: 
+                    # 計算推開的向量 (從對方指向自己)
+                    diff = self.pos - other.pos
+                    if diff.length() > 0:
+                        diff = diff.normalize()
+                        # 距離越近，推力越大
+                        separation_force += diff / (dist + 0.1)
+                        count += 1
+        
+        if count > 0:
+            # 施加排斥力，稍微調整強度
+            if separation_force.length() > 0:
+                self.pos += separation_force.normalize() * 1.5
 
     def update(self):
-        if not self.is_alive:
-            return
+        if not self.is_alive: return
 
-        # --- 1. 基礎生理機制 ---
-        self.hunger += config.HUNGER_RATE
-        if self.hunger >= 100:
-            self.is_alive = False
-            print(f"💀 {self.name} 餓死了！")
-            return
-
-        if self.hunger > 80 and self.engine.food > 0:
-            self.engine.food -= 1
-            self.hunger -= config.FOOD_NUTRITION
-            if self.hunger < 0: self.hunger = 0
-
-        # --- 2. AI 移動邏輯 (包含求生本能) ---
-        
-        found_target = False # 用來標記是否正在前往食物
-        
-        # [新增] 求生本能：如果飢餓 > 50，優先找最近的食物
-        if self.hunger > 50:
-            nearest_food = None
-            min_dist = 99999
+        # 1. 英雄由玩家控制 (略過 AI)
+        if self.role == "Hero":
+            pass 
+        else:
+            # --- 日夜作息系統 ---
+            is_night = (self.engine.frame_count / config.DAY_LENGTH) > 0.7
             
-            # 搜尋所有資源
-            for r in self.engine.resources:
-                if r.active and getattr(r, 'type', 'Food') == 'Food':
-                    # 取得資源座標
-                    rx, ry = r.x, r.y
-                    # 計算距離
-                    dist = self.pos.distance_to(pygame.math.Vector2(rx, ry))
-                    
-                    if dist < min_dist:
-                        min_dist = dist
-                        nearest_food = r
-            
-            # 如果有找到食物，就往那邊走
-            if nearest_food:
-                target_vec = pygame.math.Vector2(nearest_food.x, nearest_food.y) - self.pos
-                if target_vec.length() > 0: # 避免除以 0
-                    self.vel = target_vec.normalize() * self.speed
-                    found_target = True
+            # [狀態 A] 肚子極餓：無視時間，找吃的
+            if self.hunger > 60:
+                food = self.get_nearest_resource(["Food"])
+                if food:
+                    self.move_towards(food.pos, 1.3)
+                else:
+                    self.wander()
 
-        # 如果不餓，或者地圖上根本沒食物 -> 執行原本的隨機移動
-        if not found_target:
-            # 隨機轉向 (閒逛)
-            if random.random() < 0.005:
-                self.vel = pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.speed
-
-            # 邊界反彈
-            if self.pos.x < 0 or self.pos.x > self.engine.map_width:
-                self.vel.x *= -1
-            if self.pos.y < 0 or self.pos.y > self.engine.map_height:
-                self.vel.y *= -1
-
-        # 更新位置
-        self.pos += self.vel
-
-        # --- 3. 採集與碰撞判定 ---
-        for r in self.engine.resources:
-            if r.active:
-                target_x, target_y = None, None
-                if hasattr(r, 'rect'): target_x, target_y = r.rect.centerx, r.rect.centery
-                elif hasattr(r, 'pos'):
-                    try: target_x, target_y = r.pos.x, r.pos.y
-                    except: pass
-                elif hasattr(r, 'x'): target_x, target_y = r.x, r.y
-
-                if target_x is None: continue
-
-                dx = self.pos.x - target_x
-                dy = self.pos.y - target_y
-                dist = math.sqrt(dx*dx + dy*dy)
+            # [狀態 B] 晚上：回營火 (加入隨機偏移，避免全部擠在正中心)
+            elif is_night:
+                center = pygame.math.Vector2(self.engine.map_width // 2, self.engine.map_height // 2)
+                # 目標是營火周圍，而不是營火正中心
+                target = center + self.personal_space_offset
                 
-                if dist < 30:
-                    r.active = False
-                    
-                    r_type = getattr(r, 'type', 'Food')
-                    
-                    if r_type == 'Food': 
-                        # 農夫特權：食物加倍
-                        amount = 1
-                        if self.role == "Farmer":
-                            amount = 2
-                            print(f"🌾 {self.name} 收穫了 {amount} 食物 (飢餓:{int(self.hunger)})")
-                        else:
-                            print(f"{self.name} 撿到了 1 食物")
-                            
-                        self.engine.food += amount
-                        
-                        # [新增] 吃到東西後，如果原本很餓，會稍微降低一點點飢餓度作為獎勵
-                        # (模擬現場偷吃一口，讓他不會馬上餓死)
-                        if self.hunger > 50:
-                            self.hunger -= 5 
+                dist = self.pos.distance_to(target)
+                
+                if dist > 10: 
+                    self.move_towards(target, 1.1)
+                else:
+                    # 到了就發呆
+                    self.wander()
+                    if self.engine.frame_count % 60 == 0:
+                        self.hunger = max(0, self.hunger - 0.5)
 
-                    elif r_type == 'Wood': 
-                        self.engine.wood += 1
-                        print(f"🌲 {self.name} 收集了木頭")
-                    elif r_type == 'Gold': 
-                        self.engine.gold += 1
-                        print(f"💎 {self.name} 收集了黃金")
-                    else: 
-                        self.engine.food += 1
+            # [狀態 C] 白天：工作
+            else:
+                res = self.get_nearest_resource(["Wood", "Gold", "Food"])
+                if res:
+                    self.move_towards(res.pos, 1.0)
+                else:
+                    self.wander()
+            
+            # [關鍵] 每一幀都執行分離檢測，防止重疊
+            self.apply_separation()
+
+        # 邊界限制
+        self.pos.x = max(10, min(self.pos.x, self.engine.map_width - 10))
+        self.pos.y = max(10, min(self.pos.y, self.engine.map_height - 10))
+
+        # 資源採集檢測
+        pickup_range = 30 if self.role == "Hero" else 15
+        
+        for r in self.engine.resources:
+            if r.active and self.pos.distance_to(r.pos) < pickup_range:
+                if self.role != "Hero" and r.type == "Food" and self.hunger > 60:
+                    r.active = False
+                    self.hunger = 0
+                    self.engine.add_floating_text(self.pos, "Yummy!", (100, 255, 100))
+                else:
+                    r.active = False
+                    if r.type == "Food": 
+                        self.engine.food += 5
+                        self.engine.add_floating_text(self.pos, "+5 Food", config.COLOR_FOOD)
+                    elif r.type == "Wood": 
+                        self.engine.wood += 5
+                        self.engine.add_floating_text(self.pos, "+5 Wood", config.COLOR_WOOD)
+                    elif r.type == "Gold": 
+                        self.engine.gold += 5
+                        self.engine.add_floating_text(self.pos, "+5 Gold", config.COLOR_GOLD)
+
+    def move_towards(self, target_pos, speed_mult):
+        direction = (target_pos - self.pos)
+        if direction.length() > 0:
+            self.dir = direction.normalize()
+            self.pos += self.dir * (self.speed * speed_mult)
+
+    def wander(self):
+        self.pos += self.dir * (self.speed * 0.5) # 發呆時走慢點
+        self.change_dir_timer += 1
+        
+        if self.pos.x <= 10 or self.pos.x >= self.engine.map_width - 10: self.dir.x *= -1
+        if self.pos.y <= 10 or self.pos.y >= self.engine.map_height - 10: self.dir.y *= -1
+
+        if self.change_dir_timer > 60: 
+            self.dir = pygame.math.Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize()
+            self.change_dir_timer = 0
 
     def draw(self, screen):
-        x = int(self.pos.x)
-        y = int(self.pos.y)
-
-        if not self.is_alive:
-            pygame.draw.line(screen, (100, 100, 100), (x-10, y), (x+10, y), 2)
-            pygame.draw.line(screen, (100, 100, 100), (x, y-5), (x, y+5), 2)
-            screen.blit(self.engine.font.render("R.I.P", True, (150, 150, 150)), (x - 15, y - 30))
-            return
-
-        swing = math.sin(self.engine.frame_count * 0.2) * 8
-        head_pos = (x, y - 25)
-        neck_pos = (x, y - 20)
-        hip_pos = (x, y - 10)
-
-        pygame.draw.circle(screen, self.color, head_pos, 5)
-        pygame.draw.line(screen, self.color, neck_pos, hip_pos, 2)
+        if not self.is_alive: return
         
-        # 畫手
-        arm_len = 8
-        if self.role == "Hunter": arm_len = 10
-        
-        pygame.draw.line(screen, self.color, (x, y - 18), (x - arm_len, y - 12 + swing), 2)
-        pygame.draw.line(screen, self.color, (x, y - 18), (x + arm_len, y - 12 - swing), 2)
-        
-        pygame.draw.line(screen, self.color, hip_pos, (x - 4 - swing, y), 2)
-        pygame.draw.line(screen, self.color, hip_pos, (x + 4 + swing, y), 2)
-
-        tc = (255, 255, 255)
-        if self.hunger > 80: tc = (255, 50, 50)
-        screen.blit(self.engine.font.render(f"{int(self.hunger)}", True, tc), (x - 10, y - 45))
+        img = None
+        if self.role == "Hero": img = self.engine.assets.get('hero')
+        else: img = self.engine.assets.get('villager')
+            
+        if img:
+            rect = img.get_rect(center=(int(self.pos.x), int(self.pos.y)))
+            screen.blit(img, rect)
+            if self.hunger > 60:
+                pygame.draw.circle(screen, (255, 50, 50), (int(self.pos.x) + 10, int(self.pos.y) - 15), 4)
+        else:
+            pygame.draw.circle(screen, self.color, (int(self.pos.x), int(self.pos.y)), 10)

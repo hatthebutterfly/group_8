@@ -53,7 +53,7 @@ class Resource:
         
         img = None
         if self.type == "Food": img = assets.get('food')
-        elif self.type == "Wood": img = assets.get('wood')
+        elif self.type == "Wood": img = assets.get('wood')    
         elif self.type == "Gold": img = assets.get('gold')
         
         if img:

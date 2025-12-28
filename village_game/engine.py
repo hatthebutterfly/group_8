@@ -1336,7 +1336,7 @@ class GameEngine:
             if not diff: break
             
             self.apply_difficulty_settings(diff)
-            self.init_world(hero)
+            self.init_world(hero)  
             
             running = True
             should_restart = False    

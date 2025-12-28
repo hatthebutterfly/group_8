@@ -346,7 +346,7 @@ class GameEngine:
         radius = 40 + int(random.random() * 5)
         glow_surf = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
         pygame.draw.circle(glow_surf, (255, 150, 50, 50), (radius, radius), radius)
-        pygame.draw.circle(glow_surf, (255, 100, 0, 80), (radius, radius), radius - 10)
+        pygame.draw.circle(glow_surf, (255, 100, 0, 80), (radius, radius), radius - 10)    
         pygame.draw.circle(glow_surf, (255, 50, 0, 150), (radius, radius), radius - 20)
         self.screen.blit(glow_surf, (cx - radius, cy - radius))
         pygame.draw.rect(self.screen, (100, 50, 20), (cx-10, cy-5, 20, 6))

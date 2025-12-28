@@ -106,6 +106,9 @@ class GameEngine:
         if not hasattr(self, 'achievement_manager'):
             self.achievement_manager = AchievementManager(self)
         
+        # 本局解鎖的成就列表（遊戲結束後顯示）
+        self.unlocked_this_game = []
+        
         # 商店系統（只在第一次初始化）
         if not hasattr(self, 'shop'):
             self.shop = Shop(self)
@@ -185,17 +188,6 @@ class GameEngine:
         self.notification_color = color
         self.notification_timer = 180
     
-    def show_achievement_notification(self, achievement):
-        """顯示成就解鎖通知"""
-        rarity_colors = {
-            "common": (200, 200, 200),
-            "rare": (100, 150, 255),
-            "epic": (200, 100, 255),
-            "legendary": (255, 215, 0)
-        }
-        color = rarity_colors.get(achievement.rarity, (255, 255, 255))
-        self.show_notification(f"🏆 成就解鎖: {achievement.name}", color)
-
     def process_night_phase(self):
         self.daily_deaths = []
         growth = int((self.day ** 2) * 0.8)
@@ -1062,6 +1054,10 @@ class GameEngine:
                     waiting = False
                 if event.type == pygame.KEYDOWN:
                     waiting = False
+        
+        # 顯示本局解鎖的成就
+        if len(self.unlocked_this_game) > 0:
+            self.show_unlocked_achievements_screen()
     
     def show_score_screen(self, victory=False):
         """顯示詳細評分畫面"""
@@ -1161,7 +1157,100 @@ class GameEngine:
                     self.diamonds += diamond_reward
                     self.save_diamonds()
                     waiting = False
+        
+        # 顯示本局解鎖的成就
+        if len(self.unlocked_this_game) > 0:
+            self.show_unlocked_achievements_screen()
     
+    
+    def show_unlocked_achievements_screen(self):
+        """顯示本局解鎖的成就"""
+        waiting = True
+        scroll_offset = 0
+        
+        while waiting:
+            self.screen.fill((15, 15, 25))
+            cx = (self.map_width + config.UI_WIDTH) // 2
+            
+            # 標題
+            title = self.large_font.render("🎉 成就解鎖 🎉", True, (255, 215, 0))
+            self.screen.blit(title, (cx - title.get_width()//2, 30))
+            
+            # 副標題
+            subtitle = self.title_font.render(f"本局解鎖了 {len(self.unlocked_this_game)} 個成就！", True, (200, 200, 200))
+            self.screen.blit(subtitle, (cx - subtitle.get_width()//2, 90))
+            
+            # 顯示解鎖的成就列表
+            y = 150
+            max_display = 6
+            start_idx = scroll_offset
+            end_idx = min(start_idx + max_display, len(self.unlocked_this_game))
+            
+            for i in range(start_idx, end_idx):
+                achievement = self.unlocked_this_game[i]
+                box_y = y + (i - start_idx) * 85
+                box_height = 80
+                
+                # 稀有度顏色
+                rarity_colors = {
+                    "common": (200, 200, 200),
+                    "rare": (100, 150, 255),
+                    "epic": (200, 100, 255),
+                    "legendary": (255, 215, 0)
+                }
+                color = rarity_colors.get(achievement.rarity, (255, 255, 255))
+                
+                # 背景
+                bg_color = (*color, 30)  # 半透明背景
+                bg_surface = pygame.Surface((self.map_width - 100, box_height), pygame.SRCALPHA)
+                bg_surface.fill(bg_color)
+                self.screen.blit(bg_surface, (50, box_y))
+                
+                # 邊框（發光效果）
+                pygame.draw.rect(self.screen, color, (50, box_y, self.map_width - 100, box_height), 3, 5)
+                
+                # 成就圖標
+                icon_size = 60
+                pygame.draw.circle(self.screen, achievement.icon_color, (90, box_y + box_height//2), icon_size//2)
+                pygame.draw.circle(self.screen, color, (90, box_y + box_height//2), icon_size//2, 2)
+                
+                # 稀有度標籤
+                rarity_text = self.font.render(achievement.rarity.upper(), True, color)
+                self.screen.blit(rarity_text, (60, box_y + 5))
+                
+                # 成就名稱
+                name = self.title_font.render(achievement.name, True, (255, 255, 255))
+                self.screen.blit(name, (140, box_y + 15))
+                
+                # 成就描述
+                desc = self.font.render(achievement.description, True, (200, 200, 200))
+                self.screen.blit(desc, (140, box_y + 45))
+                
+                # 解鎖時間
+                time_text = self.font.render(f"解鎖時間: {achievement.unlock_time}", True, (150, 150, 150))
+                self.screen.blit(time_text, (self.map_width - 250, box_y + 55))
+            
+            # 滾動提示
+            if len(self.unlocked_this_game) > max_display:
+                scroll_hint = self.font.render(f"[上下鍵滾動] {start_idx + 1}-{end_idx}/{len(self.unlocked_this_game)}", True, (150, 150, 150))
+                self.screen.blit(scroll_hint, (cx - scroll_hint.get_width()//2, self.map_height - 80))
+            
+            # 返回提示
+            back_hint = self.font.render("按 [任意鍵] 繼續", True, (150, 150, 150))
+            self.screen.blit(back_hint, (cx - back_hint.get_width()//2, self.map_height - 40))
+            
+            pygame.display.flip()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    waiting = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        scroll_offset = max(0, scroll_offset - 1)
+                    elif event.key == pygame.K_DOWN:
+                        scroll_offset = min(len(self.unlocked_this_game) - max_display, scroll_offset + 1) if len(self.unlocked_this_game) > max_display else 0
+                    else:
+                        waiting = False
     
     def achievement_screen(self):
         """成就查看畫面"""
@@ -1318,25 +1407,25 @@ class GameEngine:
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: return None
-                if event.type == pygame.KEYDOWN:  
+                if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE: return None
                     if event.key == pygame.K_1: selected_diff = "Normal"
                     if event.key == pygame.K_2: selected_diff = "Hard"
                     if event.key == pygame.K_3: selected_diff = "Hell"
-                    if event.key == pygame.K_4: selected_diff = "Endless"  
+                    if event.key == pygame.K_4: selected_diff = "Endless"
         return selected_diff
 
-    def run(self):  
+    def run(self):
         while True:
             self.reset_game_state()
             if not self.start_screen(): break
-            hero = self.hero_selection_screen()  
+            hero = self.hero_selection_screen()
             if not hero: break
             diff = self.difficulty_selection_screen()
             if not diff: break
             
             self.apply_difficulty_settings(diff)
-            self.init_world(hero)  
+            self.init_world(hero)
             
             running = True
             should_restart = False    
@@ -1353,7 +1442,7 @@ class GameEngine:
                         should_restart = True
                         running = False
                     else:
-                        return # 離開        
+                        return # 離開    
                 
                 # 檢查勝利（無盡模式沒有15天限制）
                 if self.day >= 15 and self.difficulty != "Endless":
@@ -1363,7 +1452,7 @@ class GameEngine:
                         running = False
                     else:
                         return
-                    
+                
                 self.clock.tick(config.FPS)
             
-            if not should_restart: break  
+            if not should_restart: break

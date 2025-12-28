@@ -1330,7 +1330,7 @@ class GameEngine:
         while True:
             self.reset_game_state()
             if not self.start_screen(): break
-            hero = self.hero_selection_screen()
+            hero = self.hero_selection_screen()  
             if not hero: break
             diff = self.difficulty_selection_screen()
             if not diff: break

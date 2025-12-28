@@ -1,6 +1,3 @@
-
-Copy
-
 import pygame
 from models.villager import Villager
 

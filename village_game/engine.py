@@ -498,7 +498,7 @@ class GameEngine:
                 self.screen.blit(txt, warn_pos)
         if self.in_transition and self.transition_alpha > 0:
             overlay = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
-            overlay.fill((0, 0, 0))
+            overlay.fill((0, 0, 0))    
             overlay.set_alpha(self.transition_alpha)
             self.screen.blit(overlay, (0, 0))
             if self.transition_alpha > 100:

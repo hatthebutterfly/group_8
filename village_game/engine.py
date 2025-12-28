@@ -1353,7 +1353,7 @@ class GameEngine:
                         should_restart = True
                         running = False
                     else:
-                        return # 離開    
+                        return # 離開        
                 
                 # 檢查勝利（無盡模式沒有15天限制）
                 if self.day >= 15 and self.difficulty != "Endless":

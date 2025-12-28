@@ -1,3 +1,6 @@
+
+Copy
+
 import pygame
 from models.villager import Villager
 
@@ -12,6 +15,12 @@ class PlayerHero(Villager):
         if keys[pygame.K_s]: dy = 1
         if keys[pygame.K_a]: dx = -1
         if keys[pygame.K_d]: dx = 1
+        
+        # 方向鍵控制
+        if keys[pygame.K_UP]: dy = -1
+        if keys[pygame.K_DOWN]: dy = 1
+        if keys[pygame.K_LEFT]: dx = -1
+        if keys[pygame.K_RIGHT]: dx = 1
         
         if dx != 0 or dy != 0:
             length = (dx*dx + dy*dy)**0.5

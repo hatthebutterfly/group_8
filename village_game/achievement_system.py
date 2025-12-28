@@ -41,8 +41,9 @@ class Achievement:
         self.unlock_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.progress = 100
         
-        # 顯示解鎖通知
-        engine.show_achievement_notification(self)
+        # 添加到本局解鎖列表（遊戲結束後顯示）
+        if hasattr(engine, 'unlocked_this_game'):
+            engine.unlocked_this_game.append(self)
         
         # 保存到文件
         engine.achievement_manager.save_achievements()
@@ -487,4 +488,4 @@ class AchievementManager:
     
     def get_achievements_by_rarity(self, rarity):
         """按稀有度獲取成就"""
-        return [a for a in self.achievements if a.rarity == rarity] 
+        return [a for a in self.achievements if a.rarity == rarity]

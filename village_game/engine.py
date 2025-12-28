@@ -591,7 +591,7 @@ class GameEngine:
             ]
             y = 100
             for opt in options:
-                rect_w = 700
+                rect_w = 700    
                 rect_h = 85
                 rect_x = cx - rect_w // 2
                 pygame.draw.rect(self.screen, (30, 30, 40), (rect_x, y, rect_w, rect_h))

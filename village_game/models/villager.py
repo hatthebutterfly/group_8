@@ -20,7 +20,7 @@ class Villager:
         self.is_alive = True
         self.change_dir_timer = 0
 
-        # 用來避免重疊的隨機偏移量，每個人有自己的一個「舒適區」
+        # 用來避免重疊的隨機偏移量，每個人有自己的一個「舒適區」    
         self.personal_space_offset = pygame.math.Vector2(random.randint(-30, 30), random.randint(-30, 30))
 
     def get_nearest_resource(self, target_types):

@@ -151,7 +151,7 @@ class Villager:
         img = None
         if self.role == "Hero": img = self.engine.assets.get('hero')
         else: img = self.engine.assets.get('villager')
-            
+                
         if img:
             rect = img.get_rect(center=(int(self.pos.x), int(self.pos.y)))
             screen.blit(img, rect)

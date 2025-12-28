@@ -8,7 +8,7 @@ class Resource:
         self.y = y
         self.pos = pygame.math.Vector2(x, y)
         self.active = True
-        
+            
         rand_val = random.random()
         if rand_val < 0.7:
             self.type = "Food"

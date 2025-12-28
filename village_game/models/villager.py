@@ -127,12 +127,15 @@ class Villager:
                     r.active = False
                     if r.type == "Food": 
                         self.engine.food += 5
+                        self.engine.total_resources_collected += 5  # 追蹤收集
                         self.engine.add_floating_text(self.pos, "+5 Food", config.COLOR_FOOD)
                     elif r.type == "Wood": 
                         self.engine.wood += 5
+                        self.engine.total_resources_collected += 5  # 追蹤收集
                         self.engine.add_floating_text(self.pos, "+5 Wood", config.COLOR_WOOD)
                     elif r.type == "Gold": 
                         self.engine.gold += 5
+                        self.engine.total_resources_collected += 5  # 追蹤收集
                         self.engine.add_floating_text(self.pos, "+5 Gold", config.COLOR_GOLD)
 
     def move_towards(self, target_pos, speed_mult):

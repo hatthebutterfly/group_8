@@ -20,7 +20,7 @@ class Resource:
             self.type = "Gold"
             self.color = config.COLOR_GOLD
 
-    def draw(self, screen):
+    def draw(self, screen):    
         if self.active:
             # 嘗試從 engine 獲取圖片
             img = None

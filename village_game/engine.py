@@ -103,7 +103,15 @@ class GameEngine:
         self.difficulty = "Normal"
         self.spawn_interval = 60 
         self.spawn_timer = 0
-        self.is_hell_mode = False 
+        self.is_hell_mode = False
+        
+        # === 評分系統追蹤 ===
+        self.total_deaths = 0              # 總死亡人數
+        self.beast_attacks = 0             # 野獸襲擊次數
+        self.total_wall_damage = 0         # 累積牆壁傷害
+        self.total_resources_collected = 0 # 累積收集資源數
+        self.max_population = 5            # 最高人口數
+        self.events_completed = 0          # 完成的事件數 
 
     def apply_difficulty_settings(self, level):
         self.difficulty = level
@@ -165,9 +173,13 @@ class GameEngine:
         if self.difficulty == "Hard": attack_damage = int(attack_damage * 1.3)
         if self.difficulty == "Hell": attack_damage = int(attack_damage * 1.5)
 
+        # 記錄野獸襲擊
+        self.beast_attacks += 1
+
         if self.wall_hp > 0:
             actual_dmg = min(self.wall_hp, attack_damage)
             self.wall_hp -= actual_dmg
+            self.total_wall_damage += actual_dmg  # 追蹤累積傷害
             self.log_event(f"夜襲！牆壁受損 -{actual_dmg}")
             if self.wall_hp == 0: self.show_notification("牆壁被摧毀！", (255, 0, 0))
         else:
@@ -176,12 +188,16 @@ class GameEngine:
                 if random.random() < 0.6:
                     victim = random.choice(living)
                     victim.is_alive = False
+                    self.total_deaths += 1  # 追蹤死亡
                     reason = "被野獸咬死"
                     self.log_event(f"慘劇：{victim.name} {reason}！")
                     self.daily_deaths.append(f"{victim.name} ({reason})")
                     if self.is_hell_mode:
                         self.log_event("地獄模式：一人死亡，全體陣亡！")
-                        for v in self.villagers: v.is_alive = False
+                        for v in self.villagers: 
+                            if v.is_alive:
+                                v.is_alive = False
+                                self.total_deaths += 1  # 追蹤所有死亡
                         self.showing_summary = True
                         return 
             else:
@@ -513,6 +529,9 @@ class GameEngine:
         pygame.display.flip()
 
     def game_over_screen(self):
+        # 先顯示評分畫面
+        self.show_score_screen(victory=False)
+        
         while True:
             self.screen.fill((0, 0, 0))
             cx, cy = (self.map_width + config.UI_WIDTH) // 2, self.map_height // 2
@@ -534,6 +553,9 @@ class GameEngine:
                     if event.key == pygame.K_ESCAPE: return False 
 
     def game_won_screen(self):
+        # 先顯示評分畫面
+        self.show_score_screen(victory=True)
+        
         while True:
             self.screen.fill((50, 50, 0))
             cx, cy = (self.map_width + config.UI_WIDTH) // 2, self.map_height // 2
@@ -617,6 +639,161 @@ class GameEngine:
                     if event.key == pygame.K_5: selected_hero = 5
         return selected_hero
 
+    def calculate_score(self, victory=False):
+        """計算最終評分"""
+        score = 0
+        breakdown = {}
+        
+        # 1. 存活天數評分 (0-300分)
+        survival_score = min(300, self.day * 20)
+        if victory:  # 勝利額外獎勵
+            survival_score = 300
+        breakdown['存活天數'] = (survival_score, f"{self.day} 天")
+        score += survival_score
+        
+        # 2. 資源評分 (0-200分)
+        total_resources = self.food + self.wood + self.gold * 5  # 黃金價值更高
+        resource_score = min(200, total_resources // 2)
+        breakdown['資源儲備'] = (resource_score, f"糧{self.food} 木{self.wood} 金{self.gold}")
+        score += resource_score
+        
+        # 3. 人口存活評分 (0-150分)
+        living_count = len([v for v in self.villagers if v.is_alive])
+        population_score = living_count * 25
+        breakdown['倖存人口'] = (population_score, f"{living_count} 人")
+        score += population_score
+        
+        # 4. 死亡懲罰 (-10分/人)
+        death_penalty = self.total_deaths * -10
+        breakdown['死亡懲罰'] = (death_penalty, f"{self.total_deaths} 人犧牲")
+        score += death_penalty
+        
+        # 5. 防禦評分 (0-100分)
+        defense_score = min(100, self.wall_hp // 5)
+        breakdown['城牆防禦'] = (defense_score, f"{self.wall_hp} HP")
+        score += defense_score
+        
+        # 6. 野獸襲擊應對 (-5分/次攻擊，但總傷害低則減免)
+        if self.total_wall_damage < 500:  # 防禦成功
+            beast_score = max(-50, -self.beast_attacks * 2)
+        else:
+            beast_score = max(-100, -self.beast_attacks * 5)
+        breakdown['野獸應對'] = (beast_score, f"受襲 {self.beast_attacks} 次")
+        score += beast_score
+        
+        # 7. 事件參與獎勵 (5分/事件)
+        event_score = self.events_completed * 5
+        breakdown['事件參與'] = (event_score, f"{self.events_completed} 個")
+        score += event_score
+        
+        # 8. 難度加成
+        difficulty_mult = 1.0
+        if self.difficulty == "Hard":
+            difficulty_mult = 1.5
+        elif self.difficulty == "Hell":
+            difficulty_mult = 2.0
+        
+        final_score = int(score * difficulty_mult)
+        
+        # 9. 勝利獎勵
+        if victory:
+            final_score += 500
+            breakdown['勝利獎勵'] = (500, "完成挑戰")
+        
+        return final_score, breakdown, difficulty_mult
+    
+    def get_rank(self, score):
+        """根據分數返回評級"""
+        if score >= 2000:
+            return "S", (255, 215, 0), "傳奇村長"
+        elif score >= 1500:
+            return "A", (100, 255, 100), "卓越領袖"
+        elif score >= 1000:
+            return "B", (100, 200, 255), "稱職村長"
+        elif score >= 600:
+            return "C", (255, 165, 0), "努力生存"
+        elif score >= 300:
+            return "D", (200, 200, 200), "勉強及格"
+        else:
+            return "F", (255, 100, 100), "慘不忍睹"
+    
+    def show_score_screen(self, victory=False):
+        """顯示詳細評分畫面"""
+        final_score, breakdown, difficulty_mult = self.calculate_score(victory)
+        rank, rank_color, rank_title = self.get_rank(final_score)
+        
+        waiting = True
+        while waiting:
+            self.screen.fill((10, 10, 15))
+            cx = (self.map_width + config.UI_WIDTH) // 2
+            
+            # 標題
+            y = 30
+            if victory:
+                title = self.large_font.render("🎉 勝利評分 🎉", True, (255, 215, 0))
+            else:
+                title = self.large_font.render("遊戲結算", True, (200, 200, 200))
+            self.screen.blit(title, (cx - title.get_width()//2, y))
+            
+            # 評級顯示
+            y += 80
+            rank_bg = pygame.Surface((200, 200), pygame.SRCALPHA)
+            pygame.draw.circle(rank_bg, (*rank_color, 100), (100, 100), 90)
+            self.screen.blit(rank_bg, (cx - 100, y))
+            
+            rank_text = pygame.font.Font(self.font.name if hasattr(self.font, 'name') else None, 120).render(rank, True, rank_color)
+            self.screen.blit(rank_text, (cx - rank_text.get_width()//2, y + 30))
+            
+            rank_desc = self.title_font.render(rank_title, True, rank_color)
+            self.screen.blit(rank_desc, (cx - rank_desc.get_width()//2, y + 160))
+            
+            # 總分
+            y += 220
+            score_text = self.large_font.render(f"總分: {final_score}", True, (255, 255, 255))
+            self.screen.blit(score_text, (cx - score_text.get_width()//2, y))
+            
+            if difficulty_mult > 1.0:
+                mult_text = self.font.render(f"({self.difficulty} 難度 x{difficulty_mult})", True, (255, 165, 0))
+                self.screen.blit(mult_text, (cx - mult_text.get_width()//2, y + 45))
+                y += 35
+            
+            # 詳細評分
+            y += 80
+            detail_title = self.title_font.render("--- 評分明細 ---", True, (150, 150, 150))
+            self.screen.blit(detail_title, (cx - detail_title.get_width()//2, y))
+            y += 45
+            
+            for category, (points, detail) in breakdown.items():
+                color = (100, 255, 100) if points >= 0 else (255, 100, 100)
+                sign = "+" if points >= 0 else ""
+                
+                # 類別名稱
+                cat_text = self.font.render(f"{category}:", True, (200, 200, 200))
+                self.screen.blit(cat_text, (cx - 300, y))
+                
+                # 詳情
+                detail_text = self.font.render(detail, True, (180, 180, 180))
+                self.screen.blit(detail_text, (cx - 100, y))
+                
+                # 分數
+                point_text = self.font.render(f"{sign}{points}", True, color)
+                self.screen.blit(point_text, (cx + 180, y))
+                
+                y += 30
+            
+            # 提示
+            y = self.map_height - 40
+            hint = self.font.render("按 [任意鍵] 繼續", True, (150, 150, 150))
+            self.screen.blit(hint, (cx - hint.get_width()//2, y))
+            
+            pygame.display.flip()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    waiting = False
+                if event.type == pygame.KEYDOWN:
+                    waiting = False
+    
     def difficulty_selection_screen(self):
         selected_diff = None
         while selected_diff is None:
@@ -696,4 +873,5 @@ class GameEngine:
                 self.clock.tick(config.FPS)
             
             if not should_restart: break
+            
             

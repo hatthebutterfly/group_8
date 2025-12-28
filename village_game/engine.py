@@ -300,7 +300,7 @@ class GameEngine:
                             if v.is_alive and v.role != "Hero":
                                 v.pos.x = random.randint(50, self.map_width - 50)
                                 v.pos.y = random.randint(50, self.map_height - 50)
-                                # 重置他們的尋路方向，避免還記著昨晚的營火
+                                # 重置他們的尋路方向，避免還記著昨晚的營火    
                                 v.dir = pygame.math.Vector2(random.choice([-1, 1]), random.choice([-1, 1])).normalize()
 
                         if self.day % 5 == 0 and self.day < 15:

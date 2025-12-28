@@ -176,9 +176,9 @@
     },
     {
       "id": "growing_village",
-      "unlocked": false,
-      "unlock_time": null,
-      "progress": 0
+      "unlocked": true,
+      "unlock_time": "2025-12-29 05:24:35",
+      "progress": 100
     },
     {
       "id": "thriving_village",
@@ -301,5 +301,5 @@
       "progress": 0
     }
   ],
-  "last_save": "2025-12-29 04:41:06"
+  "last_save": "2025-12-29 05:24:35"
 }

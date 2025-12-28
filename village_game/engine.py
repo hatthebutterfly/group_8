@@ -316,7 +316,7 @@ class GameEngine:
 
             if self.is_paused:
                 if event.type == pygame.KEYDOWN:
-                    if self.event_manager.handle_input(event.key): self.is_paused = False
+                    if self.event_manager.handle_input(event.key): self.is_paused = False    
                 continue
                 
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -332,7 +332,7 @@ class GameEngine:
     def draw_text_with_shadow(self, surface, text, font, color, x, y):
         shadow = font.render(text, True, (0, 0, 0))
         surface.blit(shadow, (x+1, y+1))
-        main = font.render(text, True, color)
+        main = font.render(text, True, color)    
         surface.blit(main, (x, y))
 
     def draw_panel(self, rect, color, border_color):

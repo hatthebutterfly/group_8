@@ -366,7 +366,7 @@ class GameEngine:
             factor = (progress - 0.8) / 0.2
             alpha = 100 + int(factor * 100)
             color = (0, 0, 40)
-        self.night_overlay.fill(color)
+        self.night_overlay.fill(color)  
         self.night_overlay.set_alpha(alpha)
         self.screen.blit(self.night_overlay, (0, 0))
 

@@ -65,7 +65,6 @@ assets = {
     "gold.png": (None, "gold"),
     "wall.png": (None, "wall")
 }
-
 for filename, (color, kind) in assets.items():
     surf = create_surface(color, kind)
     pygame.image.save(surf, os.path.join(ASSET_DIR, filename))

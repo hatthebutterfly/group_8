@@ -43,7 +43,7 @@ class Villager:
         for other in self.engine.villagers:
             if other is not self and other.is_alive:
                 dist = self.pos.distance_to(other.pos)
-                # 如果距離太近 (小於 25 像素)
+                # 如果距離太近 (小於 25 像素)     
                 if dist < 25: 
                     # 計算推開的向量 (從對方指向自己)
                     diff = self.pos - other.pos

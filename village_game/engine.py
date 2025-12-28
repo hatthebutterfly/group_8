@@ -1323,7 +1323,7 @@ class GameEngine:
                     if event.key == pygame.K_1: selected_diff = "Normal"
                     if event.key == pygame.K_2: selected_diff = "Hard"
                     if event.key == pygame.K_3: selected_diff = "Hell"
-                    if event.key == pygame.K_4: selected_diff = "Endless"
+                    if event.key == pygame.K_4: selected_diff = "Endless"  
         return selected_diff
 
     def run(self):

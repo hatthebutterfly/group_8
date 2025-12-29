@@ -1,3 +1,324 @@
+# 🏰 Village Game - 完整系統架構
+
+## 📋 目錄
+- [專案結構](#專案結構)
+- [系統架構圖](#系統架構圖)
+- [模組關係圖](#模組關係圖)
+- [檔案說明](#檔案說明)
+
+---
+
+## 專案結構
+
+```
+village_game/
+│
+├── main.py                      # 🎮 遊戲入口點
+│
+├── engine.py                    # 🎯 遊戲引擎核心
+│   ├── GameEngine (主類別)
+│   ├── 渲染系統
+│   ├── 事件處理
+│   └── 遊戲循環控制
+│
+├── config.py                    # ⚙️  遊戲配置
+│   ├── 視窗設定
+│   ├── 顏色定義
+│   └── 遊戲常數
+│
+├── utils.py                     # 🛠️  工具函數
+│   └── 輔助功能
+│
+├── models/                      # 📦 核心模組
+│   ├── __init__.py
+│   ├── resource.py              # 💰 資源系統
+│   │   ├── Resource (資源基類)
+│   │   ├── Wood (木材)
+│   │   ├── Stone (石頭)
+│   │   ├── Food (食物)
+│   │   └── Gold (金幣)
+│   │
+│   ├── villager.py              # 👥 村民系統
+│   │   ├── Villager (村民基類)
+│   │   ├── Worker (工人)
+│   │   ├── Farmer (農夫)
+│   │   ├── Miner (礦工)
+│   │   └── Builder (建造者)
+│   │
+│   ├── hero.py                  # 🦸 英雄系統
+│   │   ├── Hero (英雄類別)
+│   │   ├── 技能系統
+│   │   ├── 裝備系統
+│   │   └── 升級系統
+│   │
+│   └── event_system.py          # 🎲 事件系統
+│       ├── Event (事件基類)
+│       ├── RandomEvent (隨機事件)
+│       ├── QuestEvent (任務事件)
+│       └── DisasterEvent (災難事件)
+│
+├── achievement_system.py        # 🏆 成就系統
+│   ├── Achievement (成就類別)
+│   ├── AchievementManager (成就管理器)
+│   └── 成就追蹤與解鎖
+│
+├── shop_system.py               # 🛒 商店系統
+│   ├── ShopItem (商品類別)
+│   ├── Shop (商店類別)
+│   └── 交易邏輯
+│
+├── create_assets.py             # 🎨 資源生成器
+│   └── 遊戲圖像資源生成
+│
+├── assets/                      # 🖼️  遊戲資源
+│   └── 圖片、音效等
+│
+├── achievements.json            # 💾 成就數據
+├── shop_data.json              # 💾 商店數據
+├── font.ttf                    # 🔤 遊戲字體
+├── README.txt                  # 📖 專案說明
+└── .gitignore                  # 🚫 Git 忽略清單
+```
+
+---
+
+## 系統架構圖
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          main.py                                 │
+│                     (遊戲啟動入口)                                │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        engine.py                                 │
+│                    (GameEngine 核心)                             │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  • 遊戲循環 (Game Loop)                                   │  │
+│  │  • 渲染系統 (Rendering)                                   │  │
+│  │  • 輸入處理 (Input Handling)                              │  │
+│  │  • 狀態管理 (State Management)                            │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└───┬────┬────┬────┬────┬────┬────┬────────────────────────────┘
+    │    │    │    │    │    │    │
+    ▼    ▼    ▼    ▼    ▼    ▼    ▼
+┌───────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────────┐
+│config ││utils ││models││achieve││shop  ││create││  assets  │
+│.py    ││.py   ││/     ││ment   ││system││assets││  /       │
+│       ││      ││      ││system ││.py   ││.py   ││          │
+└───────┘└──────┘└──┬───┘└──────┘└──────┘└──────┘└──────────┘
+                     │
+        ┌────────────┼────────────┐
+        │            │            │
+        ▼            ▼            ▼
+   ┌─────────┐ ┌─────────┐ ┌──────────┐
+   │resource │ │villager │ │  hero    │
+   │.py      │ │.py      │ │  .py     │
+   └─────────┘ └─────────┘ └──────────┘
+        │            │            │
+        └────────────┼────────────┘
+                     ▼
+              ┌──────────┐
+              │  event   │
+              │ system.py│
+              └──────────┘
+```
+
+---
+
+## 模組關係圖
+
+### 核心系統互動
+
+```
+    GameEngine (engine.py)
+         │
+         ├─→ 讀取 config.py (遊戲設定)
+         ├─→ 使用 utils.py (工具函數)
+         │
+         ├─→ ResourceSystem (models/resource.py)
+         │   ├── Wood (木材資源)
+         │   ├── Stone (石頭資源)
+         │   ├── Food (食物資源)
+         │   └── Gold (金幣資源)
+         │
+         ├─→ VillagerSystem (models/villager.py)
+         │   ├── Worker (工人)
+         │   ├── Farmer (農夫)
+         │   ├── Miner (礦工)
+         │   └── Builder (建造者)
+         │        │
+         │        └─→ 消耗/生產 → ResourceSystem
+         │
+         ├─→ HeroSystem (models/hero.py)
+         │   ├── 技能系統
+         │   ├── 裝備系統
+         │   └── 升級系統
+         │        │
+         │        └─→ 使用資源 → ResourceSystem
+         │
+         ├─→ EventSystem (models/event_system.py)
+         │   ├── RandomEvent (隨機事件)
+         │   ├── QuestEvent (任務事件)
+         │   └── DisasterEvent (災難事件)
+         │        │
+         │        ├─→ 影響 → VillagerSystem
+         │        └─→ 影響 → ResourceSystem
+         │
+         ├─→ AchievementSystem (achievement_system.py)
+         │   └── 監聽所有系統事件
+         │        ├─→ 追蹤 VillagerSystem
+         │        ├─→ 追蹤 ResourceSystem
+         │        ├─→ 追蹤 HeroSystem
+         │        └─→ 追蹤 EventSystem
+         │
+         └─→ ShopSystem (shop_system.py)
+             └── 交易資源 ↔ ResourceSystem
+```
+
+### 資料流向
+
+```
+玩家輸入
+    │
+    ▼
+GameEngine (處理輸入)
+    │
+    ├─→ 建造建築 → 消耗資源 (ResourceSystem)
+    │                │
+    │                └─→ 觸發成就 (AchievementSystem)
+    │
+    ├─→ 招募村民 → VillagerSystem
+    │                │
+    │                ├─→ 消耗資源 (ResourceSystem)
+    │                └─→ 生產資源 (ResourceSystem)
+    │
+    ├─→ 英雄行動 → HeroSystem
+    │                │
+    │                ├─→ 使用資源 (ResourceSystem)
+    │                └─→ 完成任務 (EventSystem)
+    │
+    ├─→ 商店購物 → ShopSystem
+    │                │
+    │                └─→ 交易資源 (ResourceSystem)
+    │
+    └─→ 隨機事件 → EventSystem
+                     │
+                     ├─→ 影響村民 (VillagerSystem)
+                     ├─→ 影響資源 (ResourceSystem)
+                     └─→ 觸發成就 (AchievementSystem)
+```
+
+---
+
+## 檔案說明
+
+### 🎮 主程序
+
+| 檔案 | 功能 | 依賴 |
+|------|------|------|
+| `main.py` | 遊戲啟動入口 | engine.py |
+| `engine.py` | 遊戲主引擎、渲染、邏輯控制 | 所有模組 |
+
+### ⚙️ 配置與工具
+
+| 檔案 | 功能 | 依賴 |
+|------|------|------|
+| `config.py` | 遊戲配置常數 | 無 |
+| `utils.py` | 工具函數 | 無 |
+| `create_assets.py` | 生成遊戲圖像資源 | pygame |
+
+### 📦 核心模組 (models/)
+
+| 檔案 | 功能 | 主要類別 |
+|------|------|----------|
+| `resource.py` | 資源管理系統 | Resource, Wood, Stone, Food, Gold |
+| `villager.py` | 村民系統 | Villager, Worker, Farmer, Miner, Builder |
+| `hero.py` | 英雄系統 | Hero, 技能、裝備、升級 |
+| `event_system.py` | 事件系統 | Event, RandomEvent, QuestEvent, DisasterEvent |
+
+### 🎯 遊戲系統
+
+| 檔案 | 功能 | 依賴 |
+|------|------|------|
+| `achievement_system.py` | 成就追蹤與解鎖 | achievements.json |
+| `shop_system.py` | 商店交易系統 | shop_data.json, resource.py |
+
+### 💾 資料檔案
+
+| 檔案 | 類型 | 用途 |
+|------|------|------|
+| `achievements.json` | JSON | 成就數據定義 |
+| `shop_data.json` | JSON | 商店商品數據 |
+| `font.ttf` | 字體 | 遊戲文字渲染 |
+
+### 🖼️ 資源目錄
+
+| 目錄 | 內容 |
+|------|------|
+| `assets/` | 圖片、音效等遊戲資源 |
+| `__pycache__/` | Python 編譯快取 |
+
+---
+
+## 🔄 遊戲循環流程
+
+```
+初始化
+  │
+  ├─→ 載入配置 (config.py)
+  ├─→ 初始化引擎 (engine.py)
+  ├─→ 載入資源 (assets/)
+  ├─→ 載入資料 (JSON 檔案)
+  └─→ 初始化所有系統
+      │
+      ▼
+   ┌─────────────────┐
+   │   遊戲主循環     │
+   │  (Game Loop)    │
+   └────────┬────────┘
+            │
+   ┌────────▼────────┐
+   │  1. 處理輸入    │
+   │  (事件、滑鼠)   │
+   └────────┬────────┘
+            │
+   ┌────────▼────────┐
+   │  2. 更新邏輯    │
+   │  • 村民工作     │
+   │  • 資源生產     │
+   │  • 事件觸發     │
+   │  • 成就檢查     │
+   └────────┬────────┘
+            │
+   ┌────────▼────────┐
+   │  3. 渲染畫面    │
+   │  • 繪製地圖     │
+   │  • 繪製 UI      │
+   │  • 繪製村民     │
+   └────────┬────────┘
+            │
+            └─→ 循環繼續或退出
+```
+
+---
+
+## 🎯 擴展方向
+
+### 可新增的系統
+- 🏗️ **建築系統** - 更多建築類型
+- ⚔️ **戰鬥系統** - 敵人、戰鬥邏輯
+- 🗺️ **地圖系統** - 多個區域、探索
+- 💬 **對話系統** - NPC 互動
+- 🌦️ **天氣系統** - 影響遊戲玩法
+- 📊 **統計系統** - 詳細數據追蹤
+
+---
+
+**建立日期**: 2025-12-29  
+**版本**: 1.0  
+**維護者**: Group 8
 # 🏰 Village Sim: Endless Mode 生存指南
 
 ## 📖 遊戲簡介

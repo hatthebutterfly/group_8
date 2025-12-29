@@ -115,7 +115,7 @@ class GameEngine:
         
         # 鑽石貨幣（跨遊戲保存）
         if not hasattr(self, 'diamonds'):
-            self.diamonds = 0  # 初始鑽石
+            self.diamonds = 300  # 初始鑽石
             self.load_diamonds()  # 讀取保存的鑽石
         
         self.difficulty = "Normal"

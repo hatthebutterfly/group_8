@@ -8,9 +8,9 @@
     },
     {
       "id": "survive_day5",
-      "unlocked": false,
-      "unlock_time": null,
-      "progress": 0
+      "unlocked": true,
+      "unlock_time": "2025-12-29 10:47:51",
+      "progress": 100
     },
     {
       "id": "survive_day10",
@@ -62,9 +62,9 @@
     },
     {
       "id": "first_night",
-      "unlocked": false,
-      "unlock_time": null,
-      "progress": 0
+      "unlocked": true,
+      "unlock_time": "2025-12-29 10:46:12",
+      "progress": 100
     },
     {
       "id": "10_nights",
@@ -86,9 +86,9 @@
     },
     {
       "id": "wall_broken",
-      "unlocked": false,
-      "unlock_time": null,
-      "progress": 0
+      "unlocked": true,
+      "unlock_time": "2025-12-29 10:47:51",
+      "progress": 100
     },
     {
       "id": "rebuild_master",
@@ -116,9 +116,9 @@
     },
     {
       "id": "collector_100",
-      "unlocked": false,
-      "unlock_time": null,
-      "progress": 0
+      "unlocked": true,
+      "unlock_time": "2025-12-29 10:46:12",
+      "progress": 100
     },
     {
       "id": "collector_500",
@@ -140,9 +140,9 @@
     },
     {
       "id": "wood_stock",
-      "unlocked": false,
-      "unlock_time": null,
-      "progress": 0
+      "unlocked": true,
+      "unlock_time": "2025-12-29 10:48:01",
+      "progress": 100
     },
     {
       "id": "gold_hoarder",
@@ -152,9 +152,9 @@
     },
     {
       "id": "all_resources",
-      "unlocked": false,
-      "unlock_time": null,
-      "progress": 0
+      "unlocked": true,
+      "unlock_time": "2025-12-29 10:47:04",
+      "progress": 100
     },
     {
       "id": "efficient_collector",
@@ -301,5 +301,5 @@
       "progress": 0
     }
   ],
-  "last_save": "2025-12-29 05:24:35"
+  "last_save": "2025-12-29 10:48:01"
 }

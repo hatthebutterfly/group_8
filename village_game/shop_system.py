@@ -16,16 +16,43 @@ class ShopItem:
         self.icon_color = icon_color
         self.purchased = False
         
+    def is_equipped(self, engine):
+        """檢查此物品是否當前正裝備中"""
+        if self.category != "appearance":
+            return False
+            
+        current_val = engine.shop_items_owned.get(self.effect_type)
+        return current_val == self.effect_value
+
     def can_purchase(self, engine):
-        """檢查是否可購買"""
+        """檢查是否可購買或裝備"""
+        # 如果是外觀類且已購買，允許再次操作（進行裝備切換）
+        if self.purchased and self.category == "appearance":
+            return True, "切換裝備"
+            
+        # 如果是其他永久物品且已購買，則不能再買
         if self.purchased and self.is_permanent:
             return False, "已擁有此物品"
+            
         if not hasattr(engine, 'diamonds') or engine.diamonds < self.price:
             return False, f"鑽石不足 (需要{self.price}💎)"
         return True, ""
     
     def purchase(self, engine):
-        """購買物品"""
+        """購買或裝備物品"""
+        # === 處理外觀類的裝備切換 ===
+        if self.purchased and self.category == "appearance":
+            if self.is_equipped(engine):
+                # 如果已裝備，則卸下（恢復預設值）
+                default_val = 'none' if self.effect_type == 'hero_effect' else 'default'
+                engine.shop_items_owned[self.effect_type] = default_val
+                return True, f"已卸下 {self.name}"
+            else:
+                # 如果未裝備，則裝備
+                self.apply_effect(engine)
+                return True, f"已裝備 {self.name}"
+
+        # === 處理正常購買 ===
         can_buy, reason = self.can_purchase(engine)
         if not can_buy:
             return False, reason
@@ -35,6 +62,7 @@ class ShopItem:
         if self.is_permanent:
             self.purchased = True
         
+        # 購買後自動裝備/生效
         self.apply_effect(engine)
         return True, f"成功購買 {self.name}"
     
@@ -331,18 +359,26 @@ class Shop:
                 box_y = y + (i - start_idx) * 75
                 box_height = 70
                 
-                # 判斷是否可購買
+                # 判斷是否可購買/互動
                 can_buy, reason = item.can_purchase(self.engine)
+                is_equipped = item.is_equipped(self.engine)
                 
-                # 背景色
-                if item.purchased and item.is_permanent:
-                    bg_color = (30, 50, 30)
-                    border_color = (100, 200, 100)
+                # 背景色與邊框邏輯
+                if is_equipped:
+                    bg_color = (30, 60, 30)  # 裝備中 - 綠色背景
+                    border_color = (100, 255, 100)
+                elif item.purchased and item.is_permanent:
+                    if item.category == "appearance":
+                        bg_color = (40, 40, 50)  # 已擁有但未裝備 - 藍灰色
+                        border_color = (100, 200, 255)
+                    else:
+                        bg_color = (30, 50, 30)  # 已擁有的能力/升級 - 暗綠色
+                        border_color = (100, 200, 100)
                 elif not can_buy:
-                    bg_color = (40, 20, 20)
+                    bg_color = (40, 20, 20)  # 無法購買 - 紅色
                     border_color = (100, 50, 50)
                 else:
-                    bg_color = (30, 30, 40)
+                    bg_color = (30, 30, 40)  # 可購買 - 默認
                     border_color = item.icon_color
                 
                 pygame.draw.rect(screen, bg_color, (50, box_y, screen.get_width() - 100, box_height), 0, 5)
@@ -359,21 +395,46 @@ class Shop:
                 desc = font.render(item.description, True, (200, 200, 200))
                 screen.blit(desc, (140, box_y + 35))
                 
-                # 價格
-                price_color = (100, 200, 255) if can_buy else (150, 150, 150)
-                price_text = title_font.render(f"{item.price}💎", True, price_color)
-                screen.blit(price_text, (screen.get_width() - 200, box_y + 15))
+                # 狀態文字顯示邏輯
+                key_hint = f"按[{i-start_idx+1}]"
                 
-                # 狀態
-                if item.purchased and item.is_permanent:
-                    status = font.render("已擁有", True, (100, 255, 100))
-                    screen.blit(status, (screen.get_width() - 200, box_y + 45))
+                if is_equipped:
+                    # 狀態：正在使用
+                    status_txt = f"{key_hint} 卸下"
+                    status_color = (100, 255, 100)
+                    # 顯示標籤
+                    tag = font.render("使用中", True, (100, 255, 100))
+                    screen.blit(tag, (screen.get_width() - 200, box_y + 15))
+                    
+                elif item.purchased and item.category == "appearance":
+                    # 狀態：已擁有，可裝備
+                    status_txt = f"{key_hint} 裝備"
+                    status_color = (100, 200, 255)
+                    # 顯示標籤
+                    tag = font.render("已擁有", True, (150, 150, 150))
+                    screen.blit(tag, (screen.get_width() - 200, box_y + 15))
+                    
+                elif item.purchased and item.is_permanent:
+                    # 狀態：已擁有 (非外觀類)
+                    status_txt = "已生效"
+                    status_color = (150, 255, 150)
+                    
                 elif not can_buy:
-                    status = font.render(reason, True, (255, 100, 100))
-                    screen.blit(status, (screen.get_width() - 250, box_y + 45))
+                    # 狀態：買不起
+                    status_txt = reason
+                    status_color = (255, 100, 100)
+                    # 顯示價格
+                    price_text = title_font.render(f"{item.price}💎", True, (150, 150, 150))
+                    screen.blit(price_text, (screen.get_width() - 200, box_y + 15))
                 else:
-                    buy_hint = font.render(f"按[{i-start_idx+1}]購買", True, (150, 255, 150))
-                    screen.blit(buy_hint, (screen.get_width() - 200, box_y + 45))
+                    # 狀態：可購買
+                    status_txt = f"{key_hint} 購買"
+                    status_color = (255, 215, 0)
+                    # 顯示價格
+                    price_text = title_font.render(f"{item.price}💎", True, (100, 200, 255))
+                    screen.blit(price_text, (screen.get_width() - 200, box_y + 15))
+                
+                screen.blit(font.render(status_txt, True, status_color), (screen.get_width() - 200, box_y + 45))
             
             # 滾動提示
             if len(items) > max_display:
@@ -405,13 +466,14 @@ class Shop:
                     elif event.key == pygame.K_DOWN:
                         scroll_offset = min(len(items) - max_display, scroll_offset + 1) if len(items) > max_display else 0
                     elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7]:
-                        # 購買商品
+                        # 購買/裝備商品
                         index = event.key - pygame.K_1
                         if start_idx + index < end_idx:
                             item = items[start_idx + index]
                             success, message = item.purchase(self.engine)
+                            # 保存數據 (不論是購買還是裝備切換，都需要保存 owned_items 的變化)
                             if success:
                                 self.save_purchases()
                                 self.engine.show_notification(message, (100, 255, 100))
-                            else:
+                            elif message:
                                 self.engine.show_notification(message, (255, 100, 100))
